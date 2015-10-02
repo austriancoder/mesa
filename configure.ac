@@ -2361,6 +2361,7 @@ AC_CONFIG_FILES([Makefile
 		src/gallium/drivers/radeon/Makefile
 		src/gallium/drivers/radeonsi/Makefile
 		src/gallium/drivers/rbug/Makefile
+		src/gallium/drivers/renderonly/Makefile
 		src/gallium/drivers/softpipe/Makefile
 		src/gallium/drivers/svga/Makefile
 		src/gallium/drivers/trace/Makefile
