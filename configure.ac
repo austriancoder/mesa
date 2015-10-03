@@ -75,6 +75,7 @@ LIBDRM_INTEL_REQUIRED=2.4.61
 LIBDRM_NVVIEUX_REQUIRED=2.4.33
 LIBDRM_NOUVEAU_REQUIRED=2.4.62
 LIBDRM_FREEDRENO_REQUIRED=2.4.65
+LIBDRM_TEGRA_REQUIRED=2.4.58
 DRI2PROTO_REQUIRED=2.6
 DRI3PROTO_REQUIRED=1.0
 PRESENTPROTO_REQUIRED=1.0
@@ -864,7 +865,7 @@ GALLIUM_DRIVERS_DEFAULT="r300,r600,svga,swrast"
 AC_ARG_WITH([gallium-drivers],
     [AS_HELP_STRING([--with-gallium-drivers@<:@=DIRS...@:>@],
         [comma delimited Gallium drivers list, e.g.
-        "i915,ilo,nouveau,r300,r600,radeonsi,freedreno,svga,swrast,vc4"
+        "i915,ilo,nouveau,r300,r600,radeonsi,freedreno,svga,swrast,tegra,vc4"
         @<:@default=r300,r600,svga,swrast@:>@])],
     [with_gallium_drivers="$withval"],
     [with_gallium_drivers="$GALLIUM_DRIVERS_DEFAULT"])
@@ -2166,6 +2167,12 @@ if test -n "$with_gallium_drivers"; then
                 HAVE_GALLIUM_LLVMPIPE=yes
             fi
             ;;
+        xtegra)
+            HAVE_GALLIUM_TEGRA=yes
+            PKG_CHECK_MODULES([TEGRA], [libdrm_tegra >= $LIBDRM_TEGRA_REQUIRED])
+            gallium_require_drm "tegra"
+            gallium_require_drm_loader
+            ;;
         xvc4)
             HAVE_GALLIUM_VC4=yes
             gallium_require_drm "vc4"
@@ -2180,6 +2187,13 @@ if test -n "$with_gallium_drivers"; then
         esac
     done
 fi
+
+dnl We need to validate some needed dependencies for renderonly drivers.
+
+if test "x$HAVE_GALLIUM_NOUVEAU" != xyes -a "x$HAVE_GALLIUM_TEGRA" == xyes  ; then
+    AC_ERROR([Building with tegra requires that nouveau])
+fi
+
 
 dnl Set LLVM_LIBS - This is done after the driver configuration so
 dnl that drivers can add additional components to LLVM_COMPONENTS.
@@ -2245,6 +2259,7 @@ AM_CONDITIONAL(HAVE_GALLIUM_FREEDRENO, test "x$HAVE_GALLIUM_FREEDRENO" = xyes)
 AM_CONDITIONAL(HAVE_GALLIUM_SOFTPIPE, test "x$HAVE_GALLIUM_SOFTPIPE" = xyes)
 AM_CONDITIONAL(HAVE_GALLIUM_LLVMPIPE, test "x$HAVE_GALLIUM_LLVMPIPE" = xyes)
 AM_CONDITIONAL(HAVE_GALLIUM_VC4, test "x$HAVE_GALLIUM_VC4" = xyes)
+AM_CONDITIONAL(HAVE_GALLIUM_TEGRA, test "x$HAVE_GALLIUM_TEGRA" = xyes)
 
 AM_CONDITIONAL(HAVE_GALLIUM_STATIC_TARGETS, test "x$enable_shared_pipe_drivers" = xno)
 
@@ -2364,6 +2379,7 @@ AC_CONFIG_FILES([Makefile
 		src/gallium/drivers/renderonly/Makefile
 		src/gallium/drivers/softpipe/Makefile
 		src/gallium/drivers/svga/Makefile
+		src/gallium/drivers/tegra/Makefile
 		src/gallium/drivers/trace/Makefile
 		src/gallium/drivers/vc4/Makefile
 		src/gallium/state_trackers/clover/Makefile
@@ -2406,6 +2422,7 @@ AC_CONFIG_FILES([Makefile
 		src/gallium/winsys/sw/wrapper/Makefile
 		src/gallium/winsys/sw/xlib/Makefile
 		src/gallium/winsys/vc4/drm/Makefile
+		src/gallium/winsys/tegra/drm/Makefile
 		src/gbm/Makefile
 		src/gbm/main/gbm.pc
 		src/glsl/Makefile

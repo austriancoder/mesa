@@ -59,6 +59,10 @@
 #include "vc4/drm/vc4_drm_public.h"
 #endif
 
+#if GALLIUM_TEGRA
+#include "tegra/drm/tegra_drm_public.h"
+#endif
+
 static char* driver_name = NULL;
 
 /* XXX: We need to teardown the winsys if *screen_create() fails. */
@@ -338,6 +342,26 @@ pipe_vc4_create_screen(int fd)
 }
 #endif
 
+#if defined(GALLIUM_TEGRA)
+#if defined(DRI_TARGET)
+const __DRIextension **__driDriverGetExtensions_tegra(void);
+
+PUBLIC const __DRIextension **__driDriverGetExtensions_tegra(void)
+{
+   globalDriverAPI = &galliumdrm_driver_api;
+   return galliumdrm_driver_extensions;
+}
+#endif
+
+static struct pipe_screen *pipe_tegra_create_screen(int fd)
+{
+   struct pipe_screen *screen;
+
+   screen = tegra_drm_screen_create(fd);
+   return screen ? debug_screen_wrap(screen) : NULL;
+}
+#endif
+
 inline struct pipe_screen *
 dd_create_screen(int fd)
 {
@@ -394,6 +418,11 @@ dd_create_screen(int fd)
       return pipe_vc4_create_screen(fd);
    else
 #endif
+#endif
+#if defined(GALLIUM_TEGRA)
+   if (strcmp(driver_name, "tegra") == 0)
+      return pipe_tegra_create_screen(fd);
+   else
 #endif
       return NULL;
 }

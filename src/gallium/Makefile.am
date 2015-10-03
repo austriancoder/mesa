@@ -82,6 +82,12 @@ if HAVE_GALLIUM_VC4
 SUBDIRS += drivers/vc4 winsys/vc4/drm
 endif
 
+## tegra
+if HAVE_GALLIUM_TEGRA
+SUBDIRS += drivers/tegra winsys/tegra/drm
+SUBDIRS += drivers/renderonly
+endif
+
 ## the sw winsys'
 SUBDIRS += winsys/sw/null
 
