@@ -128,6 +128,9 @@ nouveau_buffer_destroy(struct pipe_screen *pscreen,
 
    util_range_destroy(&res->valid_buffer_range);
 
+   if (res->scanout)
+       renderonly_scanout_destroy(res->scanout);
+
    FREE(res);
 
    NOUVEAU_DRV_STAT(nouveau_screen(pscreen), buf_obj_current_count, -1);

@@ -92,6 +92,10 @@ if HAVE_GALLIUM_VIRGL
 SUBDIRS += drivers/virgl winsys/virgl/drm winsys/virgl/vtest
 endif
 
+if HAVE_GALLIUM_TEGRA
+SUBDIRS += drivers/tegra winsys/tegra/drm
+endif
+
 ## the sw winsys'
 SUBDIRS += winsys/sw/null
 

@@ -8,12 +8,26 @@ static struct pipe_resource *
 nvc0_resource_create(struct pipe_screen *screen,
                      const struct pipe_resource *templ)
 {
+   struct nouveau_screen *scr = nouveau_screen(screen);
+   struct pipe_resource *pres;
+
    switch (templ->target) {
    case PIPE_BUFFER:
-      return nouveau_buffer_create(screen, templ);
+       pres = nouveau_buffer_create(screen, templ);
+       break;
    default:
-      return nvc0_miptree_create(screen, templ);
+       pres = nvc0_miptree_create(screen, templ);
+       break;
    }
+
+   if (pres) {
+       struct nv04_resource *res = nv04_resource(pres);
+
+       if (templ->bind & PIPE_BIND_SCANOUT)
+           res->scanout = renderonly_scanout_for_resource(pres, scr->ro);
+   }
+
+   return pres;
 }
 
 static struct pipe_resource *

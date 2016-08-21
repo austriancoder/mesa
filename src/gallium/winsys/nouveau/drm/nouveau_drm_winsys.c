@@ -156,3 +156,13 @@ err:
 	pipe_mutex_unlock(nouveau_screen_mutex);
 	return NULL;
 }
+
+struct pipe_screen *nouveau_drm_screen_create_renderonly(int fd, struct renderonly *ro)
+{
+   struct nouveau_screen *screen = nouveau_drm_screen_create(fd);
+
+   if (screen)
+      screen->ro = ro;
+
+   return screen;
+}

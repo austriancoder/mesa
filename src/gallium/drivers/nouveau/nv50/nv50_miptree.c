@@ -189,6 +189,9 @@ nv50_miptree_get_handle(struct pipe_screen *pscreen,
    if (!mt || !mt->base.bo)
       return false;
 
+   if (renderonly_get_handle(mt->base.scanout, whandle))
+      return TRUE;
+
    stride = mt->level[0].pitch;
 
    return nouveau_screen_bo_get_handle(pscreen,

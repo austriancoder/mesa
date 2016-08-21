@@ -50,6 +50,8 @@ struct nv04_resource {
 
    /* buffer range that has been initialized */
    struct util_range valid_buffer_range;
+
+   struct renderonly_scanout *scanout;
 };
 
 void
