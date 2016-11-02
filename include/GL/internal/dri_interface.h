@@ -42,6 +42,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <dlfcn.h>
 #ifdef HAVE_LIBDRM
 #include <drm.h>
@@ -616,6 +617,12 @@ dri_get_extensions_name(const char *driver_name)
 
 	if (asprintf(&name, "%s_%s", __DRI_DRIVER_GET_EXTENSIONS, driver_name) < 0)
 		return NULL;
+
+	const size_t len = strlen(name);
+	for (size_t i = 0; i < len; i++) {
+		if (name[i] == '-')
+			name[i] = '_';
+	}
 
 	return name;
 }
