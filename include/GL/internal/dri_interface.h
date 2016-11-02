@@ -40,6 +40,9 @@
 #ifndef DRI_INTERFACE_H
 #define DRI_INTERFACE_H
 
+#include <stdio.h>
+#include <stdlib.h>
+#include <dlfcn.h>
 #ifdef HAVE_LIBDRM
 #include <drm.h>
 #else
@@ -605,6 +608,17 @@ struct __DRIuseInvalidateExtensionRec {
  * const __DRIextension **__driDriverGetExtensions_drivername(void);
  */
 #define __DRI_DRIVER_GET_EXTENSIONS "__driDriverGetExtensions"
+
+static inline char *
+dri_get_extensions_name(const char *driver_name)
+{
+	char *name = NULL;
+
+	if (asprintf(&name, "%s_%s", __DRI_DRIVER_GET_EXTENSIONS, driver_name) < 0)
+		return NULL;
+
+	return name;
+}
 
 /**
  * Tokens for __DRIconfig attribs.  A number of attributes defined by
