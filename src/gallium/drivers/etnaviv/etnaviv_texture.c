@@ -67,6 +67,8 @@ etna_create_sampler_state(struct pipe_context *pipe,
       cs->min_lod = cs->max_lod = etna_float_to_fixp55(ss->min_lod);
    }
 
+   cs->TE_SAMPLER_3D_CONFIG = VIVS_TE_SAMPLER_CONFIG0_VWRAP(translate_texture_wrapmode(ss->wrap_r));
+
    return cs;
 }
 
@@ -210,6 +212,9 @@ etna_create_sampler_view(struct pipe_context *pctx, struct pipe_resource *prsc,
    case PIPE_TEXTURE_RECT:
       sv->TE_SAMPLER_CONFIG0 |= VIVS_TE_SAMPLER_CONFIG0_TYPE(TEXTURE_TYPE_2D);
       break;
+   case PIPE_TEXTURE_3D:
+      sv->TE_SAMPLER_CONFIG0 |= VIVS_TE_SAMPLER_CONFIG0_TYPE(TEXTURE_TYPE_3D);
+      break;
    case PIPE_TEXTURE_CUBE:
       sv->TE_SAMPLER_CONFIG0 |= VIVS_TE_SAMPLER_CONFIG0_TYPE(TEXTURE_TYPE_CUBE_MAP);
       break;
@@ -226,6 +231,10 @@ etna_create_sampler_view(struct pipe_context *pctx, struct pipe_resource *prsc,
    sv->TE_SAMPLER_LOG_SIZE =
       VIVS_TE_SAMPLER_LOG_SIZE_WIDTH(etna_log2_fixp55(res->base.width0)) |
       VIVS_TE_SAMPLER_LOG_SIZE_HEIGHT(etna_log2_fixp55(res->base.height0));
+
+   if (sv->base.target == PIPE_TEXTURE_3D)
+      sv->TE_SAMPLER_3D_CONFIG = VIVS_TE_SAMPLER_3D_CONFIG_DEPTH(res->base.depth0) |
+                                 VIVS_TE_SAMPLER_3D_CONFIG_LOG_DEPTH(etna_log2_fixp55(res->base.depth0));
 
    /* Set up levels-of-detail */
    for (int lod = 0; lod <= res->base.last_level; ++lod) {

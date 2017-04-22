@@ -672,6 +672,18 @@ etna_emit_state(struct etna_context *ctx)
                                  VIVS_TE_SAMPLER_LOD_CONFIG_MIN(MAX2(ss->min_lod, sv->min_lod)));
          }
       }
+
+      for (int x = 0; x < VIVS_TE_SAMPLER__LEN; ++x) {
+         if ((1 << x) & active_samplers) {
+            ss = etna_sampler_state(ctx->sampler[x]);
+            sv = etna_sampler_view(ctx->sampler_view[x]);
+
+            /*0x2180*/ EMIT_STATE(TE_SAMPLER_3D_CONFIG(x),
+                                  ss->TE_SAMPLER_3D_CONFIG |
+                                  sv->TE_SAMPLER_3D_CONFIG);
+         }
+      }
+
       for (int x = 0; x < VIVS_TE_SAMPLER__LEN; ++x) {
          if ((1 << x) & active_samplers) {
             ss = etna_sampler_state(ctx->sampler[x]);
