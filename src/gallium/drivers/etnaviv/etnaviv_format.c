@@ -226,6 +226,7 @@ static struct etna_format formats[PIPE_FORMAT_COUNT] = {
    /* YUV */
    _T(YUYV, YUY2, YUY2),
    _T(UYVY, UYVY, NONE),
+   _T(NV12,  YUY2, YUY2)
 };
 
 uint32_t
