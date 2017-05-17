@@ -77,6 +77,9 @@ etna_screen_destroy(struct pipe_screen *pscreen)
 {
    struct etna_screen *screen = etna_screen(pscreen);
 
+   if (screen->perfmon)
+      etna_perfmon_del(screen->perfmon);
+
    if (screen->pipe)
       etna_pipe_del(screen->pipe);
 
@@ -773,6 +776,12 @@ etna_screen_create(struct etna_device *dev, struct etna_gpu *gpu,
    screen->pipe = etna_pipe_new(gpu, ETNA_PIPE_3D);
    if (!screen->pipe) {
       DBG("could not create 3d pipe");
+      goto fail;
+   }
+
+   screen->perfmon = etna_perfmon_create(screen->pipe);
+   if (!screen->perfmon) {
+      DBG("could not create perfmon");
       goto fail;
    }
 
