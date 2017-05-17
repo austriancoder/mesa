@@ -957,7 +957,7 @@ if with_gallium_nouveau or with_dri_nouveau
   dep_libdrm_nouveau = dependency('libdrm_nouveau', version : '>= 2.4.66')
 endif
 if with_gallium_etnaviv
-  dep_libdrm_etnaviv = dependency('libdrm_etnaviv', version : '>= 2.4.82')
+  dep_libdrm_etnaviv = dependency('libdrm_etnaviv', version : '>= 2.4.89')
 endif
 if with_gallium_freedreno
   dep_libdrm_freedreno = dependency('libdrm_freedreno', version : '>= 2.4.89')

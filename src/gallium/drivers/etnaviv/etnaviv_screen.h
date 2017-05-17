@@ -65,6 +65,7 @@ struct etna_screen {
    struct etna_device *dev;
    struct etna_gpu *gpu;
    struct etna_pipe *pipe;
+   struct etna_perfmon *perfmon;
    struct renderonly *ro;
 
    struct slab_parent_pool transfer_pool;
