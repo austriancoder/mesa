@@ -1,5 +1,6 @@
 /*
- * Copyright (c) 2016 Etnaviv Project
+ * Copyright (c) 2017 Etnaviv Project
+ * Copyright (C) 2017 Zodiac Inflight Innovations
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -25,41 +26,38 @@
  *    Christian Gmeiner <christian.gmeiner@gmail.com>
  */
 
-#ifndef H_ETNAVIV_QUERY
-#define H_ETNAVIV_QUERY
+#ifndef H_ETNAVIV_QUERY_HW
+#define H_ETNAVIV_QUERY_HW
 
-#include "pipe/p_context.h"
+#include "etnaviv_query.h"
 
-struct etna_context;
-struct etna_query;
-
-struct etna_query_funcs {
-   void (*destroy_query)(struct etna_context *ctx, struct etna_query *q);
-   boolean (*begin_query)(struct etna_context *ctx, struct etna_query *q);
-   void (*end_query)(struct etna_context *ctx, struct etna_query *q);
-   boolean (*get_query_result)(struct etna_context *ctx, struct etna_query *q,
-                               boolean wait, union pipe_query_result *result);
+struct etna_pm_source {
+   struct list_head node;  /* list-node in etna_pm_query->signals */
+   struct etna_perfmon_signal *signal;
+   unsigned offset;
 };
 
-struct etna_query {
-   const struct etna_query_funcs *funcs;
-   bool active;
-   int type;
+struct etna_pm_query {
+   struct etna_query base;
+   struct list_head signals;
+   struct etna_bo *bo;
+   uint32_t *data;
+   uint32_t sequence;
+   unsigned offset;
+   bool ready;
 };
 
-static inline struct etna_query *
-etna_query(struct pipe_query *pq)
+static inline struct etna_pm_query *
+etna_pm_query(struct etna_query *q)
 {
-   return (struct etna_query *)pq;
+   return (struct etna_pm_query *)q;
 }
 
-#define ETNA_SW_QUERY_BASE       (PIPE_QUERY_DRIVER_SPECIFIC + 0)
-#define ETNA_PM_QUERY_BASE       (PIPE_QUERY_DRIVER_SPECIFIC + 32)
+struct etna_query *
+etna_pm_create_query(struct etna_context *ctx, unsigned query_type);
 
-void
-etna_query_screen_init(struct pipe_screen *pscreen);
-
-void
-etna_query_context_init(struct pipe_context *pctx);
+int
+etna_pm_get_driver_query_info(struct pipe_screen *pscreen, unsigned index,
+                              struct pipe_driver_query_info *info);
 
 #endif
