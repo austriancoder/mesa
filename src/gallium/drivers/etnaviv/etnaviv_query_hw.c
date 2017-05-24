@@ -29,27 +29,59 @@
 #include "util/u_memory.h"
 
 #include "etnaviv_context.h"
+#include "etnaviv_emit.h"
 #include "etnaviv_query_hw.h"
 #include "etnaviv_screen.h"
+
+#define VIVS_GL_OCCLUSION_QUERY_ADDR                           0x00003824
+#define VIVS_GL_OCCLUSION_QUERY                                0x00003830
+
+static void
+realloc_query_bo(struct etna_context *ctx, struct etna_hw_query *hq)
+{
+	struct etna_resource *rsc;
+	void *map;
+
+	pipe_resource_reference(&hq->prsc, NULL);
+
+	hq->prsc = pipe_buffer_create(&ctx->screen->base,
+			PIPE_BIND_QUERY_BUFFER, 0, 0x2);
+
+	/* don't assume the buffer is zero-initialized: */
+	rsc = etna_resource(hq->prsc);
+
+	etna_bo_cpu_prep(rsc->bo, DRM_ETNA_PREP_WRITE);
+
+	map = etna_bo_map(rsc->bo);
+	memset(map, 0, 0x2);
+	etna_bo_cpu_fini(rsc->bo);
+}
 
 static void
 etna_hw_destroy_query(struct etna_context *ctx, struct etna_query *q)
 {
    struct etna_hw_query *hq = etna_hw_query(q);
 
+   pipe_resource_reference(&hq->prsc, NULL);
    FREE(hq);
 }
 
 static boolean
 etna_hw_begin_query(struct etna_context *ctx, struct etna_query *q)
 {
+   struct etna_hw_query *hq = etna_hw_query(q);
+   struct etna_reloc r = {
+      .flags = ETNA_RELOC_WRITE
+   };
+
    q->active = true;
 
-   switch (q->type) {
-   default:
-      assert(0); /* can't happen, we don't create queries with invalid type */
-      break;
-   }
+   /* ->begin_query() discards previous results, so realloc bo: */
+   realloc_query_bo(ctx, hq);
+
+   /* resume */
+   r.bo = etna_resource(hq->prsc)->bo;
+   etna_set_state_reloc(ctx->stream, VIVS_GL_OCCLUSION_QUERY_ADDR, &r);
 
    return true;
 }
@@ -59,26 +91,40 @@ etna_hw_end_query(struct etna_context *ctx, struct etna_query *q)
 {
    q->active = false;
 
-   switch (q->type) {
-   default:
-      break;
-   }
+   /* pause */
+   etna_set_state(ctx->stream, VIVS_GL_OCCLUSION_QUERY, 0x1DF5E76);
 }
 
 static boolean
 etna_hw_get_query_result(struct etna_context *ctx, struct etna_query *q,
                          boolean wait, union pipe_query_result *result)
 {
+   struct etna_hw_query *hq = etna_hw_query(q);
+   struct etna_resource *rsc = etna_resource(hq->prsc);
+   uint64_t *res64 = (uint64_t *)result;
+
    if (q->active)
       return false;
 
-   util_query_clear_result(result, q->type);
+   /* if !wait, then check the last sample (the one most likely to
+    * not be ready yet) and bail if it is not ready:
+    */
+   if (!wait) {
+      int ret;
 
-   switch (q->type) {
-   default:
-      assert(0); /* can't happen, we don't create queries with invalid type */
-      return false;
+      ret = etna_bo_cpu_prep(rsc->bo, DRM_ETNA_PREP_READ | DRM_ETNA_PREP_NOSYNC);
+      if (ret)
+         return false;
+
+      etna_bo_cpu_fini(rsc->bo);
    }
+
+   /* get the result: */
+   etna_bo_cpu_prep(rsc->bo, DRM_ETNA_PREP_READ);
+
+   uint64_t *ptr = etna_bo_map(rsc->bo);
+   *res64 = *ptr;
+   etna_bo_cpu_fini(rsc->bo);
 
    return true;
 }
@@ -95,6 +141,9 @@ etna_hw_create_query(struct etna_context *ctx, unsigned query_type)
 {
    struct etna_hw_query *hq;
    struct etna_query *q;
+
+   if (query_type != PIPE_QUERY_OCCLUSION_COUNTER)
+      return NULL;
 
    hq = CALLOC_STRUCT(etna_hw_query);
    if (!hq)

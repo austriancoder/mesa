@@ -32,6 +32,8 @@
 
 struct etna_hw_query {
    struct etna_query base;
+
+   struct pipe_resource *prsc;
 };
 
 static inline struct etna_hw_query *
