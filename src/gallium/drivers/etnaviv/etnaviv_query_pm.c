@@ -33,14 +33,29 @@
 #include "etnaviv_query_pm.h"
 #include "etnaviv_screen.h"
 
+struct etna_perfom_source
+{
+   unsigned int offset;
+   const char *domain;
+   const char *signal;
+};
+
 struct etna_perfmon_config
 {
   unsigned type;
-  const char *domain;
-  const char *signal;
+  const struct etna_perfom_source *source;
 };
 
 static const struct etna_perfmon_config query_config[] = {
+   {
+      .type = PIPE_QUERY_PIPELINE_STATISTICS,
+      .source = (const struct etna_perfom_source[]) {
+         { 1, "PA", "INPUT_VTX_COUNTER" },
+         { 2, "PA", "INPUT_PRIM_COUNTER" },
+         { 6, "RA", "TOTAL_PRIMITIVE_COUNT" },
+         { 7, "RA", "VALID_PIXEL_COUNT" }
+      }
+   }
 };
 
 static const struct etna_perfmon_config *
@@ -55,15 +70,48 @@ etna_pm_query_config(unsigned type)
 
 static struct etna_perfmon_signal *
 etna_pm_query_signal(struct etna_perfmon *perfmon,
-                     const struct etna_perfmon_config *cfg)
+                     const struct etna_perfom_source *source)
 {
   struct etna_perfmon_domain *domain;
 
-  domain = etna_perfmon_get_dom_by_name(perfmon, cfg->domain);
+  domain = etna_perfmon_get_dom_by_name(perfmon, source->domain);
   if (!domain)
     return NULL;
 
-  return etna_perfmon_get_sig_by_name(domain, cfg->signal);
+  return etna_perfmon_get_sig_by_name(domain, source->signal);
+}
+
+static bool
+etna_pm_cfg_supported(struct etna_perfmon *perfmon,
+                  const struct etna_perfmon_config *cfg)
+{
+   for (unsigned i = 0; i < ARRAY_SIZE(cfg->source); i++) {
+      struct etna_perfmon_signal *sig = etna_pm_query_signal(perfmon, &cfg->source[i]);
+
+      if (!sig)
+         return false;
+   }
+
+   return true;
+}
+
+static bool
+etna_pm_add_signals(struct etna_pm_query *pq, struct etna_perfmon *perfmon,
+                  const struct etna_perfmon_config *cfg)
+{
+   for (unsigned i = 0; i < ARRAY_SIZE(cfg->source); i++) {
+      struct etna_perfmon_signal *sig = etna_pm_query_signal(perfmon, &cfg->source[i]);
+      struct etna_pm_source *source = CALLOC_STRUCT(etna_pm_source);
+
+      if (!source)
+         return false;
+
+      source->signal = sig;
+      source->offset = cfg->source[i].offset;
+      list_addtail(&source->node, &pq->signals);
+   }
+
+   return true;
 }
 
 static bool
@@ -76,28 +124,37 @@ realloc_query_bo(struct etna_context *ctx, struct etna_pm_query *pq)
    if (unlikely(!pq->bo))
       return false;
 
+   /* don't assume the buffer is zero-initialized */
+   etna_bo_cpu_prep(pq->bo, DRM_ETNA_PREP_WRITE);
    pq->data = etna_bo_map(pq->bo);
+   memset(pq->data, 0, 64);
+   etna_bo_cpu_fini(pq->bo);
 
    return true;
 }
 
 static void
 etna_pm_query_get(struct etna_cmd_stream *stream, struct etna_query *q,
-                  unsigned offset, unsigned flags)
+                  unsigned flags)
 {
-   assert(offset);
+   struct etna_pm_query *pq = etna_pm_query(q);
+   unsigned offset = 0;
    assert(flags);
 
-   struct etna_pm_query *pq = etna_pm_query(q);
-   struct etna_perf p = {
-     .flags = flags,
-     .sequence = pq->sequence,
-     .signal = pq->signal,
-     .bo = pq->bo,
-     .offset = offset
-   };
+   list_for_each_entry(struct etna_pm_source, source, &pq->signals, node) {
+      struct etna_perf p = {
+        .flags = flags,
+        .sequence = pq->sequence,
+        .bo = pq->bo,
+        .signal = source->signal,
+        .offset = pq->offset + source->offset
+      };
 
-   etna_cmd_stream_perf(stream, &p);
+      etna_cmd_stream_perf(stream, &p);
+      offset = MAX2(offset, source->offset);
+   }
+
+   pq->offset = offset + 1;
 }
 
 static inline void
@@ -114,6 +171,9 @@ etna_pm_destroy_query(struct etna_context *ctx, struct etna_query *q)
 {
    struct etna_pm_query *pq = etna_pm_query(q);
 
+   list_for_each_entry(struct etna_pm_source, source, &pq->signals, node)
+      FREE(source);
+
    etna_bo_del(pq->bo);
    FREE(pq);
 }
@@ -126,8 +186,12 @@ etna_pm_begin_query(struct etna_context *ctx, struct etna_query *q)
    q->active = true;
    pq->ready = false;
    pq->sequence++;
+   pq->offset = 0;
 
    switch (q->type) {
+   case PIPE_QUERY_PIPELINE_STATISTICS:
+      etna_pm_query_get(ctx->stream, q, ETNA_PM_PROCESS_PRE);
+      break;
    default:
       assert(0); /* can't happen, we don't create queries with invalid type */
       break;
@@ -142,6 +206,9 @@ etna_pm_end_query(struct etna_context *ctx, struct etna_query *q)
    q->active = false;
 
    switch (q->type) {
+   case PIPE_QUERY_PIPELINE_STATISTICS:
+      etna_pm_query_get(ctx->stream, q, ETNA_PM_PROCESS_POST);
+      break;
    default:
       break;
    }
@@ -152,6 +219,7 @@ etna_pm_get_query_result(struct etna_context *ctx, struct etna_query *q,
                          boolean wait, union pipe_query_result *result)
 {
    struct etna_pm_query *pq = etna_pm_query(q);
+   uint64_t *res64 = (uint64_t *)result;
 
    if (q->active)
       return false;
@@ -166,6 +234,10 @@ etna_pm_get_query_result(struct etna_context *ctx, struct etna_query *q,
    util_query_clear_result(result, q->type);
 
    switch (q->type) {
+   case PIPE_QUERY_PIPELINE_STATISTICS:
+      for (unsigned i = 1; i < 9; ++i)
+         res64[i] = pq->data[i] - pq->data[8 + i];
+      break;
    default:
       assert(0); /* can't happen, we don't create queries with invalid type */
       return false;
@@ -186,7 +258,6 @@ etna_pm_create_query(struct etna_context *ctx, unsigned query_type)
 {
    struct etna_perfmon *perfmon = ctx->screen->perfmon;
    const struct etna_perfmon_config *cfg;
-   struct etna_perfmon_signal *signal;
    struct etna_pm_query *pq;
    struct etna_query *q;
 
@@ -194,9 +265,8 @@ etna_pm_create_query(struct etna_context *ctx, unsigned query_type)
    if (!cfg)
       return NULL;
 
-   /* check if perf signal is supported by hardware */
-   signal = etna_pm_query_signal(perfmon, cfg);
-   if (!signal)
+   /* check if configuration is supported by hardware */
+   if (!etna_pm_cfg_supported(perfmon, cfg))
       return NULL;
 
    pq = CALLOC_STRUCT(etna_pm_query);
@@ -211,7 +281,12 @@ etna_pm_create_query(struct etna_context *ctx, unsigned query_type)
    q = &pq->base;
    q->funcs = &hw_query_funcs;
    q->type = query_type;
-   pq->signal = signal;
+   list_inithead(&pq->signals);
+
+   if (!etna_pm_add_signals(pq, perfmon, cfg)) {
+      etna_pm_destroy_query(ctx, q);
+      return NULL;
+   }
 
    return q;
 }

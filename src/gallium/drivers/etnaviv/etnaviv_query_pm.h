@@ -31,12 +31,20 @@
 
 #include "etnaviv_query.h"
 
+struct etna_pm_source
+{
+   struct list_head node;   /* list-node in etna_pm_query->signals */
+   struct etna_perfmon_signal *signal;
+   unsigned int offset;
+};
+
 struct etna_pm_query {
    struct etna_query base;
-   struct etna_perfmon_signal *signal;
+   struct list_head signals;
    struct etna_bo *bo;
    uint32_t *data;
    uint32_t sequence;
+   unsigned offset;
    bool ready;
 };
 
