@@ -33,9 +33,6 @@
 #include "etnaviv_query_hw.h"
 #include "etnaviv_screen.h"
 
-#define VIVS_GL_OCCLUSION_QUERY_ADDR                           0x00003824
-#define VIVS_GL_OCCLUSION_QUERY                                0x00003830
-
 static void
 realloc_query_bo(struct etna_context *ctx, struct etna_hw_query *hq)
 {
@@ -70,9 +67,6 @@ static boolean
 etna_hw_begin_query(struct etna_context *ctx, struct etna_query *q)
 {
    struct etna_hw_query *hq = etna_hw_query(q);
-   struct etna_reloc r = {
-      .flags = ETNA_RELOC_WRITE
-   };
 
    q->active = true;
 
@@ -80,8 +74,9 @@ etna_hw_begin_query(struct etna_context *ctx, struct etna_query *q)
    realloc_query_bo(ctx, hq);
 
    /* resume */
-   r.bo = etna_resource(hq->prsc)->bo;
-   etna_set_state_reloc(ctx->stream, VIVS_GL_OCCLUSION_QUERY_ADDR, &r);
+   ctx->oq_address.bo = etna_resource(hq->prsc)->bo;
+   ctx->oq_index = 0;
+   ctx->oq_enabled = true;
 
    return true;
 }
@@ -92,7 +87,7 @@ etna_hw_end_query(struct etna_context *ctx, struct etna_query *q)
    q->active = false;
 
    /* pause */
-   etna_set_state(ctx->stream, VIVS_GL_OCCLUSION_QUERY, 0x1DF5E76);
+   ctx->oq_enabled = false;
 }
 
 static boolean
@@ -123,7 +118,9 @@ etna_hw_get_query_result(struct etna_context *ctx, struct etna_query *q,
    etna_bo_cpu_prep(rsc->bo, DRM_ETNA_PREP_READ);
 
    uint64_t *ptr = etna_bo_map(rsc->bo);
-   *res64 = *ptr;
+   for (unsigned i = 0; i < ctx->oq_index; i++)
+      *res64 += *(ptr + i);
+
    etna_bo_cpu_fini(rsc->bo);
 
    return true;

@@ -179,6 +179,11 @@ struct etna_context {
 
    struct pipe_debug_callback debug;
    int in_fence_fd;
+
+   /* occlusion query */
+   bool oq_enabled;
+   unsigned oq_index;
+   struct etna_reloc oq_address;
 };
 
 static inline struct etna_context *
