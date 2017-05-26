@@ -33,6 +33,11 @@
 
 struct etna_pm_query {
    struct etna_query base;
+   struct etna_perfmon_signal *signal;
+   struct etna_bo *bo;
+   uint32_t *data;
+   uint32_t sequence;
+   bool ready;
 };
 
 static inline struct etna_pm_query *
