@@ -269,10 +269,27 @@ etna_draw_vbo(struct pipe_context *pctx, const struct pipe_draw_info *info)
    /* First, sync state, then emit DRAW_PRIMITIVES or DRAW_INDEXED_PRIMITIVES */
    etna_emit_state(ctx);
 
+   #define VIVS_GL_OCCLUSION_QUERY_ADDR                           0x00003824
+   #define VIVS_GL_OCCLUSION_QUERY                                0x00003830
+
+   if (ctx->oq_enabled) {
+      if (ctx->oq_index > 63) {
+         printf("oh no...\n");
+         ctx->oq_index = 63;
+      }
+
+      ctx->oq_address.offset = ctx->oq_index * 2; /* 64bit value */
+      etna_set_state_reloc(ctx->stream, VIVS_GL_OCCLUSION_QUERY_ADDR, &ctx->oq_address);
+      ctx->oq_index++;
+   }
+
    if (info->index_size)
       etna_draw_indexed_primitives(ctx->stream, draw_mode, info->start, prims, info->index_bias);
    else
       etna_draw_primitives(ctx->stream, draw_mode, info->start, prims);
+
+   if (ctx->oq_enabled)
+      etna_set_state(ctx->stream, VIVS_GL_OCCLUSION_QUERY, 0x1DF5E76);
 
    if (DBG_ENABLED(ETNA_DBG_DRAW_STALL)) {
       /* Stall the FE after every draw operation.  This allows better

@@ -43,9 +43,6 @@
 #include "hw/state.xml.h"
 #include "util/u_math.h"
 
-#define VIVS_GL_OCCLUSION_QUERY_ADDR                           0x00003824
-#define VIVS_GL_OCCLUSION_QUERY                                0x00003830
-
 struct etna_coalesce {
    uint32_t start;
    uint32_t last_reg;
@@ -364,18 +361,6 @@ etna_emit_state(struct etna_context *ctx)
    struct etna_coalesce coalesce;
 
    etna_coalesce_start(stream, &coalesce);
-
-   if (ctx->oq_enabled) {
-
-      if (ctx->oq_index > 63) {
-         printf("oh no...\n");
-         ctx->oq_index = 63;
-      }
-
-      ctx->oq_address.offset = ctx->oq_index * 2; /* 64bit value */
-      EMIT_STATE_RELOC(GL_OCCLUSION_QUERY_ADDR, &ctx->oq_address);
-      ctx->oq_index++;
-   }
 
    /* begin only EMIT_STATE -- make sure no new etna_reserve calls are done here
     * directly
@@ -711,9 +696,6 @@ etna_emit_state(struct etna_context *ctx)
          /*03828*/ EMIT_STATE(GL_VARYING_COMPONENT_USE(x), ctx->shader_state.GL_VARYING_COMPONENT_USE[x]);
       }
    }
-
-   if (ctx->oq_enabled)
-      EMIT_STATE(GL_OCCLUSION_QUERY, 0x1DF5E76);
 
    etna_coalesce_end(stream, &coalesce);
    /* end only EMIT_STATE */
