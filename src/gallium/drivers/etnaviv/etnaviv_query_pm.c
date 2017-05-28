@@ -43,12 +43,14 @@ struct etna_perfom_source
 struct etna_perfmon_config
 {
   unsigned type;
+  unsigned nr_sources;
   const struct etna_perfom_source *source;
 };
 
 static const struct etna_perfmon_config query_config[] = {
    {
       .type = PIPE_QUERY_PIPELINE_STATISTICS,
+      .nr_sources = 4,
       .source = (const struct etna_perfom_source[]) {
          { 1, "PA", "INPUT_VTX_COUNTER" },
          { 2, "PA", "INPUT_PRIM_COUNTER" },
@@ -85,7 +87,7 @@ static bool
 etna_pm_cfg_supported(struct etna_perfmon *perfmon,
                   const struct etna_perfmon_config *cfg)
 {
-   for (unsigned i = 0; i < ARRAY_SIZE(cfg->source); i++) {
+   for (unsigned i = 0; i < cfg->nr_sources; i++) {
       struct etna_perfmon_signal *sig = etna_pm_query_signal(perfmon, &cfg->source[i]);
 
       if (!sig)
@@ -99,7 +101,7 @@ static bool
 etna_pm_add_signals(struct etna_pm_query *pq, struct etna_perfmon *perfmon,
                   const struct etna_perfmon_config *cfg)
 {
-   for (unsigned i = 0; i < ARRAY_SIZE(cfg->source); i++) {
+   for (unsigned i = 0; i < cfg->nr_sources; i++) {
       struct etna_perfmon_signal *sig = etna_pm_query_signal(perfmon, &cfg->source[i]);
       struct etna_pm_source *source = CALLOC_STRUCT(etna_pm_source);
 
