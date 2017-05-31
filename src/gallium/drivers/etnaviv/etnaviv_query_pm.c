@@ -156,7 +156,10 @@ etna_pm_query_get(struct etna_cmd_stream *stream, struct etna_query *q,
       offset = MAX2(offset, source->offset);
    }
 
-   pq->offset = offset + 1;
+   if (flags == ETNA_PM_PROCESS_PRE)
+      pq->offset = offset;
+   else
+      pq->offset = 0;
 }
 
 static inline void
@@ -237,8 +240,8 @@ etna_pm_get_query_result(struct etna_context *ctx, struct etna_query *q,
 
    switch (q->type) {
    case PIPE_QUERY_PIPELINE_STATISTICS:
-      for (unsigned i = 1; i < 9; ++i)
-         res64[i] = pq->data[i] - pq->data[8 + i];
+      for (unsigned i = 1; i < 7; ++i)
+         res64[i] = pq->data[7 + i] - pq->data[i];
       break;
    default:
       assert(0); /* can't happen, we don't create queries with invalid type */
