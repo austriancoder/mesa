@@ -21,7 +21,6 @@
  * DEALINGS IN THE SOFTWARE.
  *
  * Authors:
- *    Rob Clark <robclark@freedesktop.org>
  *    Christian Gmeiner <christian.gmeiner@gmail.com>
  */
 
@@ -32,27 +31,6 @@
 #include "etnaviv_emit.h"
 #include "etnaviv_query_hw.h"
 #include "etnaviv_screen.h"
-
-static void
-realloc_query_bo(struct etna_context *ctx, struct etna_hw_query *hq)
-{
-	struct etna_resource *rsc;
-	void *map;
-
-	pipe_resource_reference(&hq->prsc, NULL);
-
-	hq->prsc = pipe_buffer_create(&ctx->screen->base,
-			PIPE_BIND_QUERY_BUFFER, 0, 0x2);
-
-	/* don't assume the buffer is zero-initialized: */
-	rsc = etna_resource(hq->prsc);
-
-	etna_bo_cpu_prep(rsc->bo, DRM_ETNA_PREP_WRITE);
-
-	map = etna_bo_map(rsc->bo);
-	memset(map, 0, 0x2);
-	etna_bo_cpu_fini(rsc->bo);
-}
 
 static void
 etna_hw_destroy_query(struct etna_context *ctx, struct etna_query *q)
@@ -66,16 +44,10 @@ etna_hw_destroy_query(struct etna_context *ctx, struct etna_query *q)
 static boolean
 etna_hw_begin_query(struct etna_context *ctx, struct etna_query *q)
 {
-   struct etna_hw_query *hq = etna_hw_query(q);
-
    q->active = true;
 
-   /* ->begin_query() discards previous results, so realloc bo: */
-   realloc_query_bo(ctx, hq);
-
    /* resume */
-   ctx->oq_address.bo = etna_resource(hq->prsc)->bo;
-   ctx->oq_index = 0;
+   ctx->oq_index++;
    ctx->oq_enabled = true;
 
    return true;
@@ -114,6 +86,8 @@ etna_hw_get_query_result(struct etna_context *ctx, struct etna_query *q,
       etna_bo_cpu_fini(rsc->bo);
    }
 
+   util_query_clear_result(result, q->type);
+
    /* get the result: */
    etna_bo_cpu_prep(rsc->bo, DRM_ETNA_PREP_READ);
 
@@ -146,9 +120,22 @@ etna_hw_create_query(struct etna_context *ctx, unsigned query_type)
    if (!hq)
       return NULL;
 
+   hq->prsc = pipe_buffer_create(&ctx->screen->base,
+      PIPE_BIND_QUERY_BUFFER, 0, 0x1000);
+   if (!hq->prsc)
+      goto fail_buffer;
+
+   ctx->oq_address.bo = etna_resource(hq->prsc)->bo;
+   ctx->oq_address.flags = ETNA_RELOC_WRITE;
+   ctx->oq_index = -1;
+
    q = &hq->base;
    q->funcs = &hw_query_funcs;
    q->type = query_type;
 
    return q;
+
+fail_buffer:
+   FREE(hq);
+   return NULL;
 }
