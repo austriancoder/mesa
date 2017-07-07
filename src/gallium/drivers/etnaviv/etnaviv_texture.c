@@ -161,6 +161,7 @@ etna_create_sampler_view(struct pipe_context *pctx, struct pipe_resource *prsc,
    struct etna_sampler_view *sv = CALLOC_STRUCT(etna_sampler_view);
    struct etna_resource *res = etna_resource(prsc);
    struct etna_context *ctx = etna_context(pctx);
+   bool is_array = false;
    const uint32_t format = translate_texture_format(so->format);
    const bool ext = !!(format & EXT_FORMAT);
    const uint32_t swiz = get_texture_swiz(so->format, so->swizzle_r,
@@ -206,6 +207,8 @@ etna_create_sampler_view(struct pipe_context *pctx, struct pipe_resource *prsc,
       sv->TE_SAMPLER_CONFIG0_MASK = ~VIVS_TE_SAMPLER_CONFIG0_VWRAP__MASK;
       sv->TE_SAMPLER_CONFIG0 |= VIVS_TE_SAMPLER_CONFIG0_VWRAP(TEXTURE_WRAPMODE_REPEAT);
       /* fallthrough */
+   case PIPE_TEXTURE_1D_ARRAY:
+      is_array = true;
    case PIPE_TEXTURE_2D:
    case PIPE_TEXTURE_RECT:
       sv->TE_SAMPLER_CONFIG0 |= VIVS_TE_SAMPLER_CONFIG0_TYPE(TEXTURE_TYPE_2D);
@@ -220,6 +223,7 @@ etna_create_sampler_view(struct pipe_context *pctx, struct pipe_resource *prsc,
    }
 
    sv->TE_SAMPLER_CONFIG1 = COND(ext, VIVS_TE_SAMPLER_CONFIG1_FORMAT_EXT(format)) |
+                            COND(is_array, 1 << 24) |
                             VIVS_TE_SAMPLER_CONFIG1_HALIGN(res->halign) | swiz;
    sv->TE_SAMPLER_SIZE = VIVS_TE_SAMPLER_SIZE_WIDTH(res->base.width0) |
                          VIVS_TE_SAMPLER_SIZE_HEIGHT(res->base.height0);
