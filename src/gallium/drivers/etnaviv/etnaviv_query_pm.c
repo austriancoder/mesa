@@ -49,6 +49,46 @@ struct etna_perfmon_config
 };
 
 static const struct etna_perfmon_config query_config[] = {
+   {
+      .name = "hi-total-cyles",
+      .type = ETNA_QUERY_HI_TOTAL_CYCLES,
+      .nr_sources = 1,
+      .source = (const struct etna_perfmon_source[]) {
+         { 1, "HI", "TOTAL_CYCLES" }
+      }
+   },
+   {
+      .name = "hi-idle-cyles",
+      .type = ETNA_QUERY_HI_IDLE_CYCLES,
+      .nr_sources = 1,
+      .source = (const struct etna_perfmon_source[]) {
+         { 1, "HI", "IDLE_CYCLES" }
+      }
+   },
+   {
+      .name = "hi-axi-cycles-read-request-stalled",
+      .type = ETNA_QUERY_HI_AXI_CYCLES_READ_REQUEST_STALLED,
+      .nr_sources = 1,
+      .source = (const struct etna_perfmon_source[]) {
+         { 1, "HI", "AXI_CYCLES_READ_REQUEST_STALLED" }
+      }
+   },
+   {
+      .name = "hi-axi-cycles-write-request-stalled",
+      .type = ETNA_QUERY_HI_AXI_CYCLES_WRITE_REQUEST_STALLED,
+      .nr_sources = 1,
+      .source = (const struct etna_perfmon_source[]) {
+         { 1, "HI", "AXI_CYCLES_WRITE_REQUEST_STALLED" }
+      }
+   },
+   {
+      .name = "hi-axi-cycles-write-data-stalled",
+      .type = ETNA_QUERY_HI_AXI_CYCLES_WRITE_DATA_STALLED,
+      .nr_sources = 1,
+      .source = (const struct etna_perfmon_source[]) {
+         { 1, "HI", "AXI_CYCLES_WRITE_DATA_STALLED" }
+      }
+   }
 };
 
 static const struct etna_perfmon_config *
