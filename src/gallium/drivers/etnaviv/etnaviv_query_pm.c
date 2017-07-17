@@ -264,6 +264,62 @@ static const struct etna_perfmon_config query_config[] = {
       .source = (const struct etna_perfmon_source[]) {
          { 1, "SE", "CULLED_LINES_COUNT" }
       }
+   },
+   {
+      .name = "ra-valid-pixel-count",
+      .type = ETNA_QUERY_RA_VALID_PIXEL_COUNT,
+      .nr_sources = 1,
+      .source = (const struct etna_perfmon_source[]) {
+         { 1, "RA", "VALID_PIXEL_COUNT" }
+      }
+   },
+   {
+      .name = "ra-total-quad-count",
+      .type = ETNA_QUERY_RA_TOTAL_QUAD_COUNT,
+      .nr_sources = 1,
+      .source = (const struct etna_perfmon_source[]) {
+         { 1, "RA", "TOTAL_QUAD_COUNT" }
+      }
+   },
+   {
+      .name = "ra-valid-quad-count-after-early-z",
+      .type = ETNA_QUERY_RA_VALID_QUAD_COUNT_AFTER_EARLY_Z,
+      .nr_sources = 1,
+      .source = (const struct etna_perfmon_source[]) {
+         { 1, "RA", "VALID_QUAD_COUNT_AFTER_EARLY_Z" }
+      }
+   },
+   {
+      .name = "ra-total-primitive-count",
+      .type = ETNA_QUERY_RA_TOTAL_PRIMITIVE_COUNT,
+      .nr_sources = 1,
+      .source = (const struct etna_perfmon_source[]) {
+         { 1, "RA", "TOTAL_PRIMITIVE_COUNT" }
+      }
+   },
+   {
+      .name = "ra-pipe-cache-miss-counter",
+      .type = ETNA_QUERY_RA_PIPE_CACHE_MISS_COUNTER,
+      .nr_sources = 1,
+      .source = (const struct etna_perfmon_source[]) {
+         { 1, "RA", "PIPE_CACHE_MISS_COUNTER" }
+      }
+   },
+   {
+      .name = "ra-prefetch-cache-miss-counter",
+      .type = ETNA_QUERY_RA_PREFETCH_CACHE_MISS_COUNTER,
+      .nr_sources = 1,
+      .source = (const struct etna_perfmon_source[]) {
+         { 1, "RA", "PREFETCH_CACHE_MISS_COUNTER" }
+      }
+   },
+   {
+      .name = "ra-pculled-quad-count",
+      .type = ETNA_QUERY_RA_CULLED_QUAD_COUNT,
+      .nr_sources = 1,
+      .source = (const struct etna_perfmon_source[]) {
+         { 1, "RA", "CULLED_QUAD_COUNT" }
+      }
    }
 };
 
