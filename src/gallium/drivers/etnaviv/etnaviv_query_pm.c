@@ -88,6 +88,46 @@ static const struct etna_perfmon_config query_config[] = {
       .source = (const struct etna_perfmon_source[]) {
          { 1, "HI", "AXI_CYCLES_WRITE_DATA_STALLED" }
       }
+   },
+   {
+      .name = "pe-pixel-count-killed-by-color-pipe",
+      .type = ETNA_QUERY_PE_PIXEL_COUNT_KILLED_BY_COLOR_PIPE,
+      .nr_sources = 1,
+      .source = (const struct etna_perfmon_source[]) {
+         { 1, "PE", "PIXEL_COUNT_KILLED_BY_COLOR_PIPE" }
+      }
+   },
+   {
+      .name = "pe-pixel-count-killed-by-depth-pipe",
+      .type = ETNA_QUERY_PE_PIXEL_COUNT_KILLED_BY_DEPTH_PIPE,
+      .nr_sources = 1,
+      .source = (const struct etna_perfmon_source[]) {
+         { 1, "PE", "PIXEL_COUNT_KILLED_BY_DEPTH_PIPE" }
+      }
+   },
+   {
+      .name = "pe-pixel-count-drawn-by-color-pipe",
+      .type = ETNA_QUERY_PE_PIXEL_COUNT_DRAWN_BY_COLOR_PIPE,
+      .nr_sources = 1,
+      .source = (const struct etna_perfmon_source[]) {
+         { 1, "PE", "PIXEL_COUNT_DRAWN_BY_COLOR_PIPE" }
+      }
+   },
+   {
+      .name = "pe-pixel-count-drawn-by-depth-pipe",
+      .type = ETNA_QUERY_PE_PIXEL_COUNT_DRAWN_BY_COLOR_PIPE,
+      .nr_sources = 1,
+      .source = (const struct etna_perfmon_source[]) {
+         { 1, "PE", "PIXEL_COUNT_DRAWN_BY_DEPTH_PIPE" }
+      }
+   },
+   {
+      .name = "pe-pixels-rendered-2d",
+      .type = ETNA_QUERY_PE_PIXEL_COUNT_DRAWN_BY_COLOR_PIPE,
+      .nr_sources = 1,
+      .source = (const struct etna_perfmon_source[]) {
+         { 1, "PE", "PIXELS_RENDERED_2D" }
+      }
    }
 };
 
