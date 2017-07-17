@@ -248,6 +248,22 @@ static const struct etna_perfmon_config query_config[] = {
       .source = (const struct etna_perfmon_source[]) {
          { 1, "PA", "CULLED_COUNTER" }
       }
+   },
+   {
+      .name = "se-culled-triangle-count",
+      .type = ETNA_QUERY_SE_CULLED_TRIANGLE_COUNT,
+      .nr_sources = 1,
+      .source = (const struct etna_perfmon_source[]) {
+         { 1, "SE", "CULLED_TRIANGLE_COUNT" }
+      }
+   },
+   {
+      .name = "se-culled-lines-count",
+      .type = ETNA_QUERY_SE_CULLED_LINES_COUNT,
+      .nr_sources = 1,
+      .source = (const struct etna_perfmon_source[]) {
+         { 1, "SE", "CULLED_LINES_COUNT" }
+      }
    }
 };
 
