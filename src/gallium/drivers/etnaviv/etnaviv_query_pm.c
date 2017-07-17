@@ -392,6 +392,30 @@ static const struct etna_perfmon_config query_config[] = {
       .source = (const struct etna_perfmon_source[]) {
          { 1, "TX", "CACHE_MISS_TEXEL_COUNT" }
       }
+   },
+   {
+      .name = "mc-total-read-req-8b-from-pipeline",
+      .type = ETNA_QUERY_MC_TOTAL_READ_REQ_8B_FROM_PIPELINE,
+      .nr_sources = 1,
+      .source = (const struct etna_perfmon_source[]) {
+         { 1, "MC", "TOTAL_READ_REQ_8B_FROM_PIPELINE" }
+      }
+   },
+   {
+      .name = "mc-total-read-req-8b-from-ip",
+      .type = ETNA_QUERY_MC_TOTAL_READ_REQ_8B_FROM_IP,
+      .nr_sources = 1,
+      .source = (const struct etna_perfmon_source[]) {
+         { 1, "MC", "TOTAL_READ_REQ_8B_FROM_IP" }
+      }
+   },
+   {
+      .name = "mc-total-write-req-8b-from-pipeline",
+      .type = ETNA_QUERY_MC_TOTAL_WRITE_REQ_8B_FROM_PIPELINE,
+      .nr_sources = 1,
+      .source = (const struct etna_perfmon_source[]) {
+         { 1, "MC", "TOTAL_WRITE_REQ_8B_FROM_PIPELINE" }
+      }
    }
 };
 
