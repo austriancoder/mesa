@@ -126,6 +126,10 @@ etna_transfer_unmap(struct pipe_context *pctx, struct pipe_transfer *ptrans)
    if (!trans->rsc && !(ptrans->usage & PIPE_TRANSFER_UNSYNCHRONIZED))
       etna_bo_cpu_fini(rsc->bo);
 
+   util_range_add(&rsc->valid_buffer_range,
+                  ptrans->box.x,
+                  ptrans->box.x + ptrans->box.width);
+
    pipe_resource_reference(&trans->rsc, NULL);
    pipe_resource_reference(&ptrans->resource, NULL);
    slab_free(&ctx->transfer_pool, trans);
@@ -283,7 +287,14 @@ etna_transfer_map(struct pipe_context *pctx, struct pipe_resource *prsc,
     * Pull resources into the CPU domain. Only skipped for unsynchronized
     * transfers without a temporary resource.
     */
-   if (trans->rsc || !(usage & PIPE_TRANSFER_UNSYNCHRONIZED)) {
+   if ((usage & PIPE_TRANSFER_WRITE) &&
+         prsc->target == PIPE_BUFFER &&
+         !util_ranges_intersect(&rsc->valid_buffer_range,
+                                box->x, box->x + box->width)) {
+         /* We are trying to write to a previously uninitialized range. No need
+          * to wait.
+          */
+    } else if (trans->rsc || !(usage & PIPE_TRANSFER_UNSYNCHRONIZED)) {
       uint32_t prep_flags = 0;
 
       if (usage & PIPE_TRANSFER_READ)
@@ -360,10 +371,15 @@ fail_prep:
 
 static void
 etna_transfer_flush_region(struct pipe_context *pctx,
-                           struct pipe_transfer *transfer,
+                           struct pipe_transfer *ptrans,
                            const struct pipe_box *box)
 {
-   /* NOOP for now */
+   struct etna_resource *rsc = etna_resource(ptrans->resource);
+
+   if (ptrans->resource->target == PIPE_BUFFER)
+      util_range_add(&rsc->valid_buffer_range,
+                     ptrans->box.x + box->x,
+                     ptrans->box.x + box->x + box->width);
 }
 
 void

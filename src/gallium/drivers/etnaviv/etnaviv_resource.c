@@ -268,6 +268,7 @@ etna_resource_alloc(struct pipe_screen *pscreen, unsigned layout,
 
    pipe_reference_init(&rsc->base.reference, 1);
    list_inithead(&rsc->list);
+   util_range_init(&rsc->valid_buffer_range);
 
    size = setup_miptree(rsc, paddingX, paddingY, msaa_xscale, msaa_yscale);
 
@@ -458,6 +459,7 @@ etna_resource_destroy(struct pipe_screen *pscreen, struct pipe_resource *prsc)
    if (rsc->scanout)
       renderonly_scanout_destroy(rsc->scanout, etna_screen(pscreen)->ro);
 
+   util_range_destroy(&rsc->valid_buffer_range);
    list_delinit(&rsc->list);
 
    pipe_resource_reference(&rsc->texture, NULL);
@@ -494,6 +496,7 @@ etna_resource_from_handle(struct pipe_screen *pscreen,
 
    pipe_reference_init(&prsc->reference, 1);
    list_inithead(&rsc->list);
+   util_range_init(&rsc->valid_buffer_range);
    prsc->screen = pscreen;
 
    rsc->bo = etna_screen_bo_from_handle(pscreen, handle, &level->stride);
