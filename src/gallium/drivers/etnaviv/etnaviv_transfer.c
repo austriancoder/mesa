@@ -230,7 +230,7 @@ etna_transfer_map(struct pipe_context *pctx, struct pipe_resource *prsc,
     * case could be optimised if we knew whether the resource has outstanding
     * rendering. */
    if ((usage & PIPE_TRANSFER_READ || trans->rsc) &&
-       rsc->status & ETNA_PENDING_WRITE)
+       resource_pending(rsc, ETNA_PENDING_WRITE))
       pctx->flush(pctx, NULL, 0);
 
    /* XXX we don't handle PIPE_TRANSFER_FLUSH_EXPLICIT; this flag can be ignored
