@@ -28,6 +28,7 @@
 #include "etnaviv_clear_blit.h"
 #include "etnaviv_context.h"
 #include "etnaviv_debug.h"
+#include "etnaviv_screen.h"
 
 #include "pipe/p_defines.h"
 #include "pipe/p_format.h"
@@ -133,6 +134,24 @@ etna_transfer_unmap(struct pipe_context *pctx, struct pipe_transfer *ptrans)
    pipe_resource_reference(&trans->rsc, NULL);
    pipe_resource_reference(&ptrans->resource, NULL);
    slab_free(&ctx->transfer_pool, trans);
+}
+
+static void
+realloc_bo(struct etna_resource *rsc, uint32_t size)
+{
+	struct etna_screen *screen = etna_screen(rsc->base.screen);
+	uint32_t flags = DRM_ETNA_GEM_CACHE_WC | DRM_ETNA_GEM_FORCE_MMU;
+
+	/* if we start using things other than write-combine,
+	 * be sure to check for PIPE_RESOURCE_FLAG_MAP_COHERENT
+	 */
+
+	if (rsc->bo)
+		etna_bo_del(rsc->bo);
+
+	rsc->bo = etna_bo_new(screen->dev, size, flags);
+	util_range_set_empty(&rsc->valid_buffer_range);
+        /* TODO: invalidate resources */
 }
 
 static void *
@@ -287,6 +306,9 @@ etna_transfer_map(struct pipe_context *pctx, struct pipe_resource *prsc,
     * Pull resources into the CPU domain. Only skipped for unsynchronized
     * transfers without a temporary resource.
     */
+   if (usage & PIPE_TRANSFER_DISCARD_WHOLE_RESOURCE && prsc->target == PIPE_BUFFER)
+      realloc_bo(rsc, etna_bo_size(rsc->bo));
+
    if ((usage & PIPE_TRANSFER_WRITE) &&
          prsc->target == PIPE_BUFFER &&
          !util_ranges_intersect(&rsc->valid_buffer_range,
