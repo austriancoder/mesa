@@ -302,7 +302,23 @@ etna_transfer_map(struct pipe_context *pctx, struct pipe_resource *prsc,
       if (usage & PIPE_TRANSFER_WRITE)
          prep_flags |= DRM_ETNA_PREP_WRITE;
 
-      if (etna_bo_cpu_prep(rsc->bo, prep_flags))
+      /*
+       * If the GPU is writing to the resource, or if it is reading from the
+       * resource and we're trying to write to it, do a flush.
+       */
+      bool needs_flush = resource_pending(rsc, !!(usage & PIPE_TRANSFER_WRITE));
+      bool busy = needs_flush || (0 != etna_bo_cpu_prep(rsc->bo,
+                                  prep_flags | DRM_ETNA_PREP_NOSYNC));
+
+      if (needs_flush)
+         pctx->flush(pctx, NULL, 0);
+
+      /*
+       * The GPU keeps track of how the various bo's are being used, and
+       * will wait if necessary for the proper operation to have
+       * completed.
+       */
+      if (busy && etna_bo_cpu_prep(rsc->bo, prep_flags))
          goto fail_prep;
    }
 
