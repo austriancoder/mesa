@@ -126,13 +126,19 @@ etna_set_framebuffer_state(struct pipe_context *pctx,
       struct etna_surface *cbuf = etna_surface(sv->cbufs[0]);
       struct etna_resource *res = etna_resource(cbuf->base.texture);
       bool color_supertiled = (res->layout & ETNA_LAYOUT_BIT_SUPER) != 0;
+      uint32_t fmt = translate_rs_format(cbuf->base.format);
 
       assert(res->layout & ETNA_LAYOUT_BIT_TILE); /* Cannot render to linear surfaces */
       etna_update_render_resource(pctx, cbuf->base.texture);
 
       pipe_surface_reference(&cs->cbuf, &cbuf->base);
-      cs->PE_COLOR_FORMAT =
-         VIVS_PE_COLOR_FORMAT_FORMAT(translate_rs_format(cbuf->base.format)) |
+
+      if (fmt >= RS_FORMAT_R16F)
+          cs->PE_COLOR_FORMAT = VIVS_PE_COLOR_FORMAT_FORMAT_EXT(fmt);
+      else
+          cs->PE_COLOR_FORMAT = VIVS_PE_COLOR_FORMAT_FORMAT(fmt);
+
+      cs->PE_COLOR_FORMAT |=
          VIVS_PE_COLOR_FORMAT_COMPONENTS__MASK |
          VIVS_PE_COLOR_FORMAT_OVERWRITE |
          COND(color_supertiled, VIVS_PE_COLOR_FORMAT_SUPER_TILED);
