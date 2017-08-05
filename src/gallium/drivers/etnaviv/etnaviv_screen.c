@@ -504,6 +504,17 @@ gpu_supports_texure_format(struct etna_screen *screen, uint32_t fmt,
    return true;
 }
 
+static bool
+gpu_supports_rs_format(struct etna_screen *screen, uint32_t fmt)
+{
+    bool supported = true;
+
+    if (fmt >= RS_FORMAT_R16F)
+        supported = VIV_FEATURE(screen, chipMinorFeatures1, HALTI0);
+
+    return supported;
+}
+
 static boolean
 etna_screen_is_format_supported(struct pipe_screen *pscreen,
                                 enum pipe_format format,
@@ -522,8 +533,13 @@ etna_screen_is_format_supported(struct pipe_screen *pscreen,
       return FALSE;
 
    if (usage & PIPE_BIND_RENDER_TARGET) {
+       uint32_t fmt = translate_rs_format(format);
+
+       if (!gpu_supports_rs_format(screen, fmt))
+           fmt = ETNA_NO_MATCH;
+
       /* if render target, must be RS-supported format */
-      if (translate_rs_format(format) != ETNA_NO_MATCH) {
+      if (fmt != ETNA_NO_MATCH) {
          /* Validate MSAA; number of samples must be allowed, and render target
           * must have MSAA'able format. */
          if (sample_count > 1) {
