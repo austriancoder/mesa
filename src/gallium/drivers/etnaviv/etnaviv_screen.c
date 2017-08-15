@@ -493,6 +493,10 @@ gpu_supports_texure_format(struct etna_screen *screen, uint32_t fmt,
        */
       if (util_format_is_etc(format))
          supported = VIV_FEATURE(screen, chipMinorFeatures2, HALTI1);
+
+      /* At the moment we do not differ between half-float and float. */
+      if (util_format_is_float(format))
+          supported = VIV_FEATURE(screen, chipMinorFeatures1, HALF_FLOAT);
    }
 
    if (!supported)
