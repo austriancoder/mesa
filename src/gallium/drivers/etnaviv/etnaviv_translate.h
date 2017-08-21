@@ -249,6 +249,8 @@ etna_compatible_rs_format(enum pipe_format fmt)
       return PIPE_FORMAT_B4G4R4A4_UNORM;
    case 4:
       return PIPE_FORMAT_B8G8R8A8_UNORM;
+   case 8:
+      return PIPE_FORMAT_B8G8R8A8_UNORM;
    default:
       return fmt;
    }
