@@ -1330,4 +1330,7 @@ void st_init_extensions(struct pipe_screen *screen,
       extensions->ARB_texture_cube_map_array &&
       extensions->ARB_texture_stencil8 &&
       extensions->ARB_texture_multisample;
+
+   extensions->ARB_texture_rg = GL_TRUE;
+   extensions->ARB_texture_float = GL_TRUE;
 }
