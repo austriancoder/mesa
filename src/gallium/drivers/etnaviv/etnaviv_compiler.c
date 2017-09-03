@@ -1303,40 +1303,6 @@ trans_arl(const struct instr_translater *t, struct etna_compile *c,
 }
 
 static void
-trans_lrp(const struct instr_translater *t, struct etna_compile *c,
-          const struct tgsi_full_instruction *inst, struct etna_inst_src *src)
-{
-   /* dst = src0 * src1 + (1 - src0) * src2
-    *     => src0 * src1 - (src0 - 1) * src2
-    *     => src0 * src1 - (src0 * src2 - src2)
-    * MAD tTEMP.xyzw, tSRC0.xyzw, tSRC2.xyzw, -tSRC2.xyzw
-    * MAD tDST.xyzw, tSRC0.xyzw, tSRC1.xyzw, -tTEMP.xyzw
-    */
-   struct etna_native_reg temp = etna_compile_get_inner_temp(c);
-   if (etna_src_uniforms_conflict(src[0], src[1]) ||
-       etna_src_uniforms_conflict(src[0], src[2])) {
-      src[0] = etna_mov_src(c, src[0]);
-   }
-
-   struct etna_inst mad[2] = { };
-   mad[0].opcode = INST_OPCODE_MAD;
-   mad[0].sat = 0;
-   mad[0].dst = etna_native_to_dst(temp, INST_COMPS_X | INST_COMPS_Y |
-                                         INST_COMPS_Z | INST_COMPS_W);
-   mad[0].src[0] = src[0];
-   mad[0].src[1] = src[2];
-   mad[0].src[2] = negate(src[2]);
-   mad[1].opcode = INST_OPCODE_MAD;
-   mad[1].sat = inst->Instruction.Saturate;
-   mad[1].dst = convert_dst(c, &inst->Dst[0]), mad[1].src[0] = src[0];
-   mad[1].src[1] = src[1];
-   mad[1].src[2] = negate(etna_native_to_src(temp, INST_SWIZ_IDENTITY));
-
-   emit_inst(c, &mad[0]);
-   emit_inst(c, &mad[1]);
-}
-
-static void
 trans_lit(const struct instr_translater *t, struct etna_compile *c,
           const struct tgsi_full_instruction *inst, struct etna_inst_src *src)
 {
@@ -1784,7 +1750,6 @@ static const struct instr_translater translaters[TGSI_OPCODE_LAST] = {
    INSTR(MAX, trans_min_max, .opc = INST_OPCODE_SELECT, .cond = INST_CONDITION_LT),
 
    INSTR(ARL, trans_arl),
-   INSTR(LRP, trans_lrp),
    INSTR(LIT, trans_lit),
    INSTR(SSG, trans_ssg),
 
@@ -2300,6 +2265,7 @@ etna_compile_shader(struct etna_shader_variant *v)
       .lower_LOG = true,
       .lower_DP2 = !specs->has_halti2_instructions,
       .lower_TRUNC = true,
+      .lower_LRP = true
    };
 
    c = CALLOC_STRUCT(etna_compile);
