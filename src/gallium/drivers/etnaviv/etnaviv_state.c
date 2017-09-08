@@ -513,8 +513,8 @@ etna_vertex_elements_state_create(struct pipe_context *pctx,
    }
 
    cs->num_elements = num_elements;
-   if (incompatible || num_elements == 0) {
-      DBG("Error: zero vertex elements, or more vertex buffers used than supported");
+   if (incompatible) {
+      DBG("Error: incompatible vertex elements or more vertex buffers used than supported");
       FREE(cs);
       return NULL;
    }
