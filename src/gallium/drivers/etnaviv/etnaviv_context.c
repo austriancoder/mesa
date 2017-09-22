@@ -288,7 +288,7 @@ etna_draw_vbo(struct pipe_context *pctx, const struct pipe_draw_info *info)
    else
       etna_draw_primitives(ctx->stream, draw_mode, info->start, prims);
 
-   if (ctx->oq_enabled)
+   if (!ctx->oq_enabled)
       etna_set_state(ctx->stream, VIVS_GL_OCCLUSION_QUERY, 0x1DF5E76);
 
    if (DBG_ENABLED(ETNA_DBG_DRAW_STALL)) {
