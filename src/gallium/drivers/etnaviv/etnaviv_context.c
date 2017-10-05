@@ -269,27 +269,33 @@ etna_draw_vbo(struct pipe_context *pctx, const struct pipe_draw_info *info)
    /* First, sync state, then emit DRAW_PRIMITIVES or DRAW_INDEXED_PRIMITIVES */
    etna_emit_state(ctx);
 
-   #define VIVS_GL_OCCLUSION_QUERY_ADDR                           0x00003824
-   #define VIVS_GL_OCCLUSION_QUERY                                0x00003830
+#define VIVS_GL_OCCLUSION_QUERY_ADDR                           0x00003824
+#define VIVS_GL_OCCLUSION_QUERY                                0x00003830
 
-   if (ctx->oq_enabled) {
+   if (ctx->oq_state == ETNA_OQ_ENABLED) {
+       ctx->oq_index = -1;
+       ctx->oq_address.offset = 0;
+       etna_set_state_reloc(ctx->stream, VIVS_GL_OCCLUSION_QUERY_ADDR, &ctx->oq_address);
+   }
+
+   if (ctx->oq_state == ETNA_OQ_PAUSED) {
+      ctx->oq_index++;
+
       if (ctx->oq_index > 63) {
-         printf("oh no...\n");
          ctx->oq_index = 63;
+         printf("oq index overflow\n");
       }
 
       ctx->oq_address.offset = ctx->oq_index * 2; /* 64bit value */
       etna_set_state_reloc(ctx->stream, VIVS_GL_OCCLUSION_QUERY_ADDR, &ctx->oq_address);
-      ctx->oq_index++;
+
+      ctx->oq_state = ETNA_OQ_ENABLED;
    }
 
    if (info->index_size)
       etna_draw_indexed_primitives(ctx->stream, draw_mode, info->start, prims, info->index_bias);
    else
       etna_draw_primitives(ctx->stream, draw_mode, info->start, prims);
-
-   if (!ctx->oq_enabled)
-      etna_set_state(ctx->stream, VIVS_GL_OCCLUSION_QUERY, 0x1DF5E76);
 
    if (DBG_ENABLED(ETNA_DBG_DRAW_STALL)) {
       /* Stall the FE after every draw operation.  This allows better
@@ -315,6 +321,11 @@ etna_flush(struct pipe_context *pctx, struct pipe_fence_handle **fence,
 {
    struct etna_context *ctx = etna_context(pctx);
    int out_fence_fd = -1;
+
+   if (ctx->oq_state == ETNA_OQ_ENABLED) {
+      ctx->oq_state = ETNA_OQ_PAUSED;
+      etna_set_state(ctx->stream, VIVS_GL_OCCLUSION_QUERY, 0x1DF5E76);
+   }
 
    etna_cmd_stream_flush2(ctx->stream, ctx->in_fence_fd,
 			  (flags & PIPE_FLUSH_FENCE_FD) ? &out_fence_fd :

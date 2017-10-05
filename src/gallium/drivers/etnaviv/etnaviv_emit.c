@@ -266,7 +266,7 @@ required_stream_size(struct etna_context *ctx)
    size += 6;
 
    /* occlusion query (two states) */
-   if (ctx->oq_enabled)
+   if (ctx->oq_state != ETNA_OQ_DISABLED)
       size += 8;
 
    /* reserve for alignment etc. */

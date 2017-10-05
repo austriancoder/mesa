@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2017 Etnaviv Project
+ * Copyright (C) 2017 Zodiac Inflight Innovations
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -45,10 +46,7 @@ static boolean
 etna_hw_begin_query(struct etna_context *ctx, struct etna_query *q)
 {
    q->active = true;
-
-   /* resume */
-   ctx->oq_index++;
-   ctx->oq_enabled = true;
+   ctx->oq_state = ETNA_OQ_ENABLED;
 
    return true;
 }
@@ -57,9 +55,7 @@ static void
 etna_hw_end_query(struct etna_context *ctx, struct etna_query *q)
 {
    q->active = false;
-
-   /* pause */
-   ctx->oq_enabled = false;
+   ctx->oq_state = ETNA_OQ_DISABLED;
 }
 
 static boolean
