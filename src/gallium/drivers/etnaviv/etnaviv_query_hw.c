@@ -46,7 +46,7 @@ static boolean
 etna_hw_begin_query(struct etna_context *ctx, struct etna_query *q)
 {
    q->active = true;
-   ctx->oq_state = ETNA_OQ_ENABLED;
+   etna_oq_set(ctx, true);
 
    return true;
 }
@@ -55,7 +55,7 @@ static void
 etna_hw_end_query(struct etna_context *ctx, struct etna_query *q)
 {
    q->active = false;
-   ctx->oq_state = ETNA_OQ_DISABLED;
+   etna_oq_set(ctx, false);
 }
 
 static boolean

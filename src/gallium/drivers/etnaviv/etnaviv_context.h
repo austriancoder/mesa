@@ -97,12 +97,6 @@ struct etna_shader_uniform_info {
    uint32_t const_count;
 };
 
-enum etna_occlusion_query_state {
-   ETNA_OQ_DISABLED = 0,
-   ETNA_OQ_ENABLED,
-   ETNA_OQ_PAUSED,
-};
-
 struct etna_context {
    struct pipe_context base;
 
@@ -187,7 +181,8 @@ struct etna_context {
    int in_fence_fd;
 
    /* occlusion query */
-   enum etna_occlusion_query_state oq_state;
+   bool oq_enabled;
+   bool oq_paused;
    unsigned oq_index;
    struct etna_reloc oq_address;
 };
@@ -206,5 +201,8 @@ etna_transfer(struct pipe_transfer *p)
 
 struct pipe_context *
 etna_context_create(struct pipe_screen *pscreen, void *priv, unsigned flags);
+
+void
+etna_oq_set(struct etna_context *ctx, bool enable);
 
 #endif
