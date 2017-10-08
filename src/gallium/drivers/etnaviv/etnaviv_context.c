@@ -145,41 +145,55 @@ etna_get_fs(struct etna_context *ctx, struct etna_shader_key key)
 #define VIVS_GL_OCCLUSION_QUERY                                0x00003830
 
 static void
+etna_oq_set_index(struct etna_context *ctx, unsigned index)
+{
+   if (index > 63) {
+      index = 63;
+      printf("oq index overflow\n");
+   }
+
+   ctx->oq_index = index;
+   ctx->oq_address.offset = index * 2; /* 64bit value */
+   etna_set_state_reloc(ctx->stream, VIVS_GL_OCCLUSION_QUERY_ADDR, &ctx->oq_address);
+}
+
+static void
 etna_oq_start(struct etna_context *ctx)
 {
-    ctx->oq_index = 0;
-    ctx->oq_address.offset = 0;
-    etna_set_state_reloc(ctx->stream, VIVS_GL_OCCLUSION_QUERY_ADDR, &ctx->oq_address);
-    ctx->oq_enabled = true;
+   etna_oq_set_index(ctx, 1);
+   ctx->oq_enabled = true;
 }
 
 static void
 etna_oq_stop(struct etna_context *ctx)
 {
-    etna_set_state(ctx->stream, VIVS_GL_OCCLUSION_QUERY, 0x1DF5E76);
-    ctx->oq_enabled = false;
+   etna_set_state(ctx->stream, VIVS_GL_OCCLUSION_QUERY, 0x1DF5E76);
+   ctx->oq_enabled = false;
 }
 
 static void
 etna_oq_pause(struct etna_context *ctx)
 {
-    etna_set_state(ctx->stream, VIVS_GL_OCCLUSION_QUERY, 0x1DF5E76);
-    ctx->oq_paused = true;
+   etna_set_state(ctx->stream, VIVS_GL_OCCLUSION_QUERY, 0x1DF5E76);
+   ctx->oq_paused = true;
 }
 
 static void
 etna_oq_resume(struct etna_context *ctx)
 {
-    ctx->oq_index++;
+   /* calculate result and store it at index 0 */
+   etna_bo_cpu_prep(ctx->oq_address.bo, DRM_ETNA_PREP_READ);
 
-    if (ctx->oq_index > 63) {
-       ctx->oq_index = 63;
-       printf("oq index overflow\n");
-    }
+   uint64_t *ptr = etna_bo_map(ctx->oq_address.bo);
+   uint64_t result = 0;
+   for (unsigned i = 0; i <= ctx->oq_index; i++)
+      result += *(ptr + i);
 
-    ctx->oq_address.offset = ctx->oq_index * 2; /* 64bit value */
-    etna_set_state_reloc(ctx->stream, VIVS_GL_OCCLUSION_QUERY_ADDR, &ctx->oq_address);
-    ctx->oq_paused = false;
+   *ptr = result;
+   etna_bo_cpu_fini(ctx->oq_address.bo);
+
+   etna_oq_set_index(ctx, 0);
+   ctx->oq_paused = false;
 }
 
 static void
@@ -318,6 +332,9 @@ etna_draw_vbo(struct pipe_context *pctx, const struct pipe_draw_info *info)
    else
       etna_draw_primitives(ctx->stream, draw_mode, info->start, prims);
 
+   if (ctx->oq_enabled)
+      etna_oq_set_index(ctx, ctx->oq_index++);
+
    if (DBG_ENABLED(ETNA_DBG_DRAW_STALL)) {
       /* Stall the FE after every draw operation.  This allows better
        * debug of GPU hang conditions, as the FE will indicate which
@@ -344,7 +361,7 @@ etna_flush(struct pipe_context *pctx, struct pipe_fence_handle **fence,
    int out_fence_fd = -1;
 
    if (ctx->oq_enabled)
-       etna_oq_pause(ctx);
+      etna_oq_pause(ctx);
 
    etna_cmd_stream_flush2(ctx->stream, ctx->in_fence_fd,
 			  (flags & PIPE_FLUSH_FENCE_FD) ? &out_fence_fd :

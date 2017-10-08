@@ -88,8 +88,7 @@ etna_hw_get_query_result(struct etna_context *ctx, struct etna_query *q,
    etna_bo_cpu_prep(rsc->bo, DRM_ETNA_PREP_READ);
 
    uint64_t *ptr = etna_bo_map(rsc->bo);
-   for (unsigned i = 0; i <= ctx->oq_index; i++)
-      *res64 += *(ptr + i);
+   *res64 = *ptr;
 
    etna_bo_cpu_fini(rsc->bo);
 
