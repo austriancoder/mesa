@@ -2424,6 +2424,25 @@ _mesa_base_tex_format(const struct gl_context *ctx, GLint internalFormat)
          return GL_YCBCR_MESA;
    }
 
+   if (ctx->Extensions.OES_texture_half_float) {
+       switch (internalFormat) {
+       case GL_ALPHA16F_ARB:
+          return GL_ALPHA;
+       case GL_RGBA16F_ARB:
+          return GL_RGBA;
+       case GL_RGB16F_ARB:
+          return GL_RGB;
+       case GL_INTENSITY16F_ARB:
+          return GL_INTENSITY;
+       case GL_LUMINANCE16F_ARB:
+          return GL_LUMINANCE;
+       case GL_LUMINANCE_ALPHA16F_ARB:
+          return GL_LUMINANCE_ALPHA;
+       default:
+          ; /* fallthrough */
+       }
+   }
+
    if (ctx->Extensions.ARB_texture_float) {
       switch (internalFormat) {
       case GL_ALPHA16F_ARB:
