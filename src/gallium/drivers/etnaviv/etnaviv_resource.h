@@ -87,6 +87,9 @@ struct etna_resource {
     * in the used_resources list. */
    struct list_head list;
    struct etna_context *pending_ctx;
+
+   /* flags used during map(..) and unmap(..) */
+   uint32_t map_ts_helper_used : 1;
 };
 
 /* returns TRUE if a is newer than b */
