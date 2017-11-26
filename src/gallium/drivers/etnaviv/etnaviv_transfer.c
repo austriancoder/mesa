@@ -364,22 +364,23 @@ etna_transfer_map(struct pipe_context *pctx, struct pipe_resource *prsc,
    } else if (!(usage & PIPE_TRANSFER_UNSYNCHRONIZED)) {
       uint32_t prep_flags = 0;
 
-      /*
-       * Always flush if we have the temporary resource and have a copy to this
-       * outstanding. Otherwise infer flush requirement from resource access and
-       * current GPU usage (reads must wait for GPU writes, writes must have
-       * exclusive access to the buffer).
-       */
-      if (((((usage & PIPE_TRANSFER_READ) && resource_pending(rsc, ETNA_PENDING_WRITE)) ||
-           ((usage & PIPE_TRANSFER_WRITE) && rsc->status))))
-         pctx->flush(pctx, NULL, 0);
-
       if (usage & PIPE_TRANSFER_READ)
          prep_flags |= DRM_ETNA_PREP_READ;
       if (usage & PIPE_TRANSFER_WRITE)
          prep_flags |= DRM_ETNA_PREP_WRITE;
 
-      if (etna_bo_cpu_prep(rsc->bo, prep_flags))
+      /*
+       * If the GPU is writing to the resource, or if it is reading from the
+       * resource and we're trying to write to it, do a flush.
+       */
+      bool needs_flush = resource_pending(rsc, !!(usage & PIPE_TRANSFER_WRITE));
+      bool busy = needs_flush || (0 != etna_bo_cpu_prep(rsc->bo,
+                                  prep_flags | DRM_ETNA_PREP_NOSYNC));
+
+      if (needs_flush)
+         pctx->flush(pctx, NULL, 0);
+
+      if (busy && etna_bo_cpu_prep(rsc->bo, prep_flags))
          goto fail_prep;
 
       trans->bo_cpu_prep_called = true;
