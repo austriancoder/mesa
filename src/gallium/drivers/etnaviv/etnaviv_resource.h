@@ -69,7 +69,9 @@ struct etna_resource {
    /* Horizontal alignment for texture unit (TEXTURE_HALIGN_*) */
    unsigned halign;
    struct etna_bo *bo; /* Surface video memory */
+   uint32_t bo_flags;
    struct etna_bo *ts_bo; /* Tile status video memory */
+   uint32_t ts_bo_flags;
 
    struct etna_resource_level levels[ETNA_NUM_LOD];
 

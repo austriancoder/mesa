@@ -102,8 +102,10 @@ etna_screen_resource_alloc_ts(struct pipe_screen *pscreen,
    DBG_F(ETNA_DBG_RESOURCE_MSGS, "%p: Allocating tile status of size %zu",
          rsc, rt_ts_size);
 
+   rsc->ts_bo_flags = DRM_ETNA_GEM_CACHE_WC;
+
    struct etna_bo *rt_ts;
-   rt_ts = etna_bo_new(screen->dev, rt_ts_size, DRM_ETNA_GEM_CACHE_WC);
+   rt_ts = etna_bo_new(screen->dev, rt_ts_size, rsc->ts_bo_flags);
 
    if (unlikely(!rt_ts)) {
       BUG("Problem allocating tile status for resource");
@@ -279,10 +281,10 @@ etna_resource_alloc(struct pipe_screen *pscreen, unsigned layout,
 
    size = setup_miptree(rsc, paddingX, paddingY, msaa_xscale, msaa_yscale);
 
-   uint32_t flags = DRM_ETNA_GEM_CACHE_WC;
+   rsc->bo_flags = DRM_ETNA_GEM_CACHE_WC;
    if (templat->bind & PIPE_BIND_VERTEX_BUFFER)
-      flags |= DRM_ETNA_GEM_FORCE_MMU;
-   struct etna_bo *bo = etna_bo_new(screen->dev, size, flags);
+      rsc->bo_flags |= DRM_ETNA_GEM_FORCE_MMU;
+   struct etna_bo *bo = etna_bo_new(screen->dev, size, rsc->bo_flags);
    if (unlikely(bo == NULL)) {
       BUG("Problem allocating video memory for resource");
       goto free_rsc;
