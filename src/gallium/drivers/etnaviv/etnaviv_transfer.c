@@ -223,11 +223,16 @@ etna_transfer_unmap(struct pipe_context *pctx, struct pipe_transfer *ptrans)
    }
 
    /*
-    * Transfers are only pulled into the CPU domain if they are not mapped unsynchronized.
+    * Transfers are only pulled into the CPU domain if they are not mapped unsynchronized and
+    * etna_bo_cpu_prep(..) was called.
     * If they are, must push them back into GPU domain after CPU access is finished.
     */
-   if (!(ptrans->usage & PIPE_TRANSFER_UNSYNCHRONIZED))
+   if (!(ptrans->usage & PIPE_TRANSFER_UNSYNCHRONIZED) && trans->bo_cpu_prep_called)
       etna_bo_cpu_fini(rsc->bo);
+
+   util_range_add(&rsc->valid_buffer_range,
+                  ptrans->box.x,
+                  ptrans->box.x + ptrans->box.width);
 
    pipe_resource_reference(&ptrans->resource, NULL);
    slab_free(&ctx->transfer_pool, trans);
@@ -351,7 +356,12 @@ etna_transfer_map(struct pipe_context *pctx, struct pipe_resource *prsc,
    /*
     * Pull resources into the CPU domain. Only skipped for unsynchronized transfers.
     */
-   if (!(usage & PIPE_TRANSFER_UNSYNCHRONIZED)) {
+   if ((usage & PIPE_TRANSFER_WRITE) &&
+        prsc->target == PIPE_BUFFER &&
+        !util_ranges_intersect(&rsc->valid_buffer_range,
+                               box->x, box->x + box->width)) {
+      /* We are trying to write to a previously uninitialized range. No need to wait. */
+   } else if (!(usage & PIPE_TRANSFER_UNSYNCHRONIZED)) {
       uint32_t prep_flags = 0;
 
       /*
@@ -371,6 +381,8 @@ etna_transfer_map(struct pipe_context *pctx, struct pipe_resource *prsc,
 
       if (etna_bo_cpu_prep(rsc->bo, prep_flags))
          goto fail_prep;
+
+      trans->bo_cpu_prep_called = true;
    }
 
    /* map buffer object */
@@ -438,10 +450,15 @@ fail_prep:
 
 static void
 etna_transfer_flush_region(struct pipe_context *pctx,
-                           struct pipe_transfer *transfer,
+                           struct pipe_transfer *ptrans,
                            const struct pipe_box *box)
 {
-   /* NOOP for now */
+   struct etna_resource *rsc = etna_resource(ptrans->resource);
+
+   if (ptrans->resource->target == PIPE_BUFFER)
+      util_range_add(&rsc->valid_buffer_range,
+                     ptrans->box.x + box->x,
+                     ptrans->box.x + box->x + box->width);
 }
 
 void

@@ -31,6 +31,7 @@
 #include "etnaviv_tiling.h"
 #include "pipe/p_state.h"
 #include "util/list.h"
+#include "util/u_range.h"
 
 struct pipe_screen;
 
@@ -72,6 +73,9 @@ struct etna_resource {
    struct etna_bo *ts_bo; /* Tile status video memory */
 
    struct etna_resource_level levels[ETNA_NUM_LOD];
+
+   /* buffer range that has been initialized */
+   struct util_range valid_buffer_range;
 
    /* When we are rendering to a texture, we need a differently tiled resource */
    struct pipe_resource *texture;

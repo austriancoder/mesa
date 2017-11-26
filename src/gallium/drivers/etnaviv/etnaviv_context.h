@@ -68,6 +68,7 @@ struct etna_shader_varying {
 
 struct etna_transfer {
    struct pipe_transfer base;
+   uint32_t bo_cpu_prep_called : 1;
    void *staging;
 };
 
