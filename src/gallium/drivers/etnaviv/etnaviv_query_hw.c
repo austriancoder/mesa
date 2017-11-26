@@ -181,7 +181,7 @@ etna_hw_get_query_result(struct etna_context *ctx, struct etna_query *q,
    if (!wait) {
       int ret;
 
-      if (rsc->status & ETNA_PENDING_WRITE) {
+      if (resource_pending(rsc, ETNA_PENDING_WRITE)) {
          /* piglit spec@arb_occlusion_query@occlusion_query_conform
           * test, and silly apps perhaps, get stuck in a loop trying
           * to get query result forever with wait==false..  we don't

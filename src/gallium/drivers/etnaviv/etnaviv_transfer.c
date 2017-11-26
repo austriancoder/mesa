@@ -370,7 +370,7 @@ etna_transfer_map(struct pipe_context *pctx, struct pipe_resource *prsc,
        * current GPU usage (reads must wait for GPU writes, writes must have
        * exclusive access to the buffer).
        */
-      if (((((usage & PIPE_TRANSFER_READ) && (rsc->status & ETNA_PENDING_WRITE)) ||
+      if (((((usage & PIPE_TRANSFER_READ) && resource_pending(rsc, ETNA_PENDING_WRITE)) ||
            ((usage & PIPE_TRANSFER_WRITE) && rsc->status))))
          pctx->flush(pctx, NULL, 0);
 
