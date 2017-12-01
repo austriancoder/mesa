@@ -57,6 +57,20 @@ etna_compute_offset(enum pipe_format format, const struct pipe_box *box,
              util_format_get_blocksize(format);
 }
 
+static inline bool
+needs_ts_resolve(struct pipe_resource *prsc)
+{
+   struct etna_resource *rsc = etna_resource(prsc);
+   enum pipe_format format = prsc->format;
+
+   return (rsc->ts_bo ||
+          (rsc->layout != ETNA_LAYOUT_LINEAR &&
+           util_format_get_blocksize(format) > 1 &&
+           /* HALIGN 4 resources are incompatible with the resolve engine,
+            * so fall back to using software to detile this resource. */
+           rsc->halign != TEXTURE_HALIGN_FOUR));
+}
+
 static void
 etna_transfer_unmap(struct pipe_context *pctx, struct pipe_transfer *ptrans)
 {
@@ -180,12 +194,7 @@ etna_transfer_map(struct pipe_context *pctx, struct pipe_resource *prsc,
        * render resource. Use the texture resource, which avoids bouncing
        * pixels between the two resources, and we can de-tile it in s/w. */
       rsc = etna_resource(rsc->texture);
-   } else if (rsc->ts_bo ||
-              (rsc->layout != ETNA_LAYOUT_LINEAR &&
-               util_format_get_blocksize(format) > 1 &&
-               /* HALIGN 4 resources are incompatible with the resolve engine,
-                * so fall back to using software to detile this resource. */
-               rsc->halign != TEXTURE_HALIGN_FOUR)) {
+   } else if (needs_ts_resolve(prsc)) {
       /* If the surface has tile status, we need to resolve it first.
        * The strategy we implement here is to use the RS to copy the
        * depth buffer, filling in the "holes" where the tile status
