@@ -105,4 +105,7 @@ etna_f32_to_fixp16(float f)
    return (int32_t)(f * 65536.0f + 0.5f);
 }
 
+#define foreach_bit(b, mask) \
+   for (uint32_t _m = (mask); _m && ({(b) = u_bit_scan(&_m); 1;});)
+
 #endif

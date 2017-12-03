@@ -29,6 +29,8 @@
 #include "etnaviv_context.h"
 #include "etnaviv_debug.h"
 #include "etnaviv_screen.h"
+#include "etnaviv_texture.h"
+#include "etnaviv_util.h"
 
 #include "pipe/p_defines.h"
 #include "pipe/p_format.h"
@@ -55,6 +57,50 @@ etna_compute_offset(enum pipe_format format, const struct pipe_box *box,
           box->y / util_format_get_blockheight(format) * stride +
           box->x / util_format_get_blockwidth(format) *
              util_format_get_blocksize(format);
+}
+
+static void
+etna_realloc_resource(struct etna_screen *screen, struct etna_resource *rsc)
+{
+   struct etna_device *dev = screen->dev;
+
+   if (rsc->bo) {
+      uint32_t size = etna_bo_size(rsc->bo);
+
+      etna_bo_del(rsc->bo);
+      rsc->bo = etna_bo_new(dev, size, rsc->bo_flags);
+   }
+
+   if (rsc->ts_bo) {
+      uint32_t size = etna_bo_size(rsc->ts_bo);
+
+      etna_bo_del(rsc->ts_bo);
+      rsc->ts_bo = etna_bo_new(dev, size, rsc->ts_bo_flags);
+   }
+}
+
+/**
+ * Go through the entire state and see if the resource is bound
+ * anywhere. If it is, mark the relevant state as dirty. This is
+ * called on realloc_bo to ensure the neccessary state is re-
+ * emitted so the GPU looks at the new backing bo.
+ */
+static void
+etna_rebind_resource(struct etna_context *ctx, struct pipe_resource *prsc)
+{
+   unsigned i;
+
+   /* VBOs */
+   for (i = 0; i < ctx->vertex_buffer.count && !(ctx->dirty & ETNA_DIRTY_VERTEX_BUFFERS); i++) {
+      if (ctx->vertex_buffer.vb[i].buffer.resource == prsc)
+         ctx->dirty |= ETNA_DIRTY_VERTEX_BUFFERS;
+   }
+
+   /* Textures */
+   foreach_bit(i, active_samplers_bits(ctx)) {
+      if (ctx->sampler_view[i]->texture == prsc)
+          ctx->dirty |= ETNA_DIRTY_SAMPLER_VIEWS | ETNA_DIRTY_TEXTURE_CACHES;
+   }
 }
 
 static void
@@ -175,7 +221,10 @@ etna_transfer_map(struct pipe_context *pctx, struct pipe_resource *prsc,
       usage |= PIPE_TRANSFER_DISCARD_WHOLE_RESOURCE;
    }
 
-   if (rsc->texture && !etna_resource_newer(rsc, etna_resource(rsc->texture))) {
+   if (usage & PIPE_TRANSFER_DISCARD_WHOLE_RESOURCE) {
+      etna_realloc_resource(ctx->screen, rsc);
+      etna_rebind_resource(ctx, prsc);
+   } else if (rsc->texture && !etna_resource_newer(rsc, etna_resource(rsc->texture))) {
       /* We have a texture resource which is the same age or newer than the
        * render resource. Use the texture resource, which avoids bouncing
        * pixels between the two resources, and we can de-tile it in s/w. */
@@ -238,7 +287,7 @@ etna_transfer_map(struct pipe_context *pctx, struct pipe_resource *prsc,
                                      ctx->screen->specs.pixel_pipes);
       }
 
-      if (!(usage & PIPE_TRANSFER_DISCARD_WHOLE_RESOURCE))
+      if (usage & PIPE_TRANSFER_READ)
          etna_copy_resource_box(pctx, trans->rsc, prsc, level, &ptrans->box);
 
       /* Switch to using the temporary resource instead */
