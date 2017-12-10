@@ -161,12 +161,6 @@ struct etna_compile {
    /* Bitmap of dead instructions which are removed in a separate pass */
    bool dead_inst[ETNA_MAX_TOKENS];
 
-   /* Immediate data */
-   enum etna_immediate_contents imm_contents[ETNA_MAX_IMM];
-   uint32_t imm_data[ETNA_MAX_IMM];
-   uint32_t imm_base; /* base of immediates (in 32 bit units) */
-   uint32_t imm_size; /* size of immediates (in 32 bit units) */
-
    /* Next free native register, for register allocation */
    uint32_t next_free_native;
 
@@ -357,93 +351,6 @@ assign_inouts_to_temporaries(struct etna_compile *c, uint file)
    }
 }
 
-/* Allocate an immediate with a certain value and return the index. If
- * there is already an immediate with that value, return that.
- */
-static struct etna_inst_src
-alloc_imm(struct etna_compile *c, enum etna_immediate_contents contents,
-          uint32_t value)
-{
-   int idx;
-
-   /* Could use a hash table to speed this up */
-   for (idx = 0; idx < c->imm_size; ++idx) {
-      if (c->imm_contents[idx] == contents && c->imm_data[idx] == value)
-         break;
-   }
-
-   /* look if there is an unused slot */
-   if (idx == c->imm_size) {
-      for (idx = 0; idx < c->imm_size; ++idx) {
-         if (c->imm_contents[idx] == ETNA_IMMEDIATE_UNUSED)
-            break;
-      }
-   }
-
-   /* allocate new immediate */
-   if (idx == c->imm_size) {
-      assert(c->imm_size < ETNA_MAX_IMM);
-      idx = c->imm_size++;
-      c->imm_data[idx] = value;
-      c->imm_contents[idx] = contents;
-   }
-
-   /* swizzle so that component with value is returned in all components */
-   idx += c->imm_base;
-   struct etna_inst_src imm_src = {
-      .use = 1,
-      .rgroup = INST_RGROUP_UNIFORM_0,
-      .reg = idx / 4,
-      .swiz = INST_SWIZ_BROADCAST(idx & 3)
-   };
-
-   return imm_src;
-}
-
-static struct etna_inst_src
-alloc_imm_u32(struct etna_compile *c, uint32_t value)
-{
-   return alloc_imm(c, ETNA_IMMEDIATE_CONSTANT, value);
-}
-
-static struct etna_inst_src
-alloc_imm_vec4u(struct etna_compile *c, enum etna_immediate_contents contents,
-                const uint32_t *values)
-{
-   struct etna_inst_src imm_src = { };
-   int idx, i;
-
-   for (idx = 0; idx + 3 < c->imm_size; idx += 4) {
-      /* What if we can use a uniform with a different swizzle? */
-      for (i = 0; i < 4; i++)
-         if (c->imm_contents[idx + i] != contents || c->imm_data[idx + i] != values[i])
-            break;
-      if (i == 4)
-         break;
-   }
-
-   if (idx + 3 >= c->imm_size) {
-      idx = align(c->imm_size, 4);
-      assert(idx + 4 <= ETNA_MAX_IMM);
-
-      for (i = 0; i < 4; i++) {
-         c->imm_data[idx + i] = values[i];
-         c->imm_contents[idx + i] = contents;
-      }
-
-      c->imm_size = idx + 4;
-   }
-
-   assert((c->imm_base & 3) == 0);
-   idx += c->imm_base;
-   imm_src.use = 1;
-   imm_src.rgroup = INST_RGROUP_UNIFORM_0;
-   imm_src.reg = idx / 4;
-   imm_src.swiz = INST_SWIZ_IDENTITY;
-
-   return imm_src;
-}
-
 static uint32_t
 get_imm_u32(struct etna_compile *c, const struct etna_inst_src *imm,
             unsigned swiz_idx)
@@ -451,16 +358,7 @@ get_imm_u32(struct etna_compile *c, const struct etna_inst_src *imm,
    assert(imm->use == 1 && imm->rgroup == INST_RGROUP_UNIFORM_0);
    unsigned int idx = imm->reg * 4 + ((imm->swiz >> (swiz_idx * 2)) & 3);
 
-   return c->imm_data[idx];
-}
-
-/* Allocate immediate with a certain float value. If there is already an
- * immediate with that value, return that.
- */
-static struct etna_inst_src
-alloc_imm_f32(struct etna_compile *c, float value)
-{
-   return alloc_imm_u32(c, fui(value));
+   return c->ir->imm_data[idx];
 }
 
 static struct etna_inst_src
@@ -471,13 +369,14 @@ etna_imm_vec4f(struct etna_compile *c, const float *vec4)
    for (int i = 0; i < 4; i++)
       val[i] = fui(vec4[i]);
 
-   return alloc_imm_vec4u(c, ETNA_IMMEDIATE_CONSTANT, val);
+   return eir_immediate_vec4(c->ir, ETNA_IMMEDIATE_CONSTANT, val);
 }
 
 /* Pass -- check register file declarations and immediates */
 static void
 etna_compile_parse_declarations(struct etna_compile *c)
 {
+   struct eir *ir = c->ir;
    struct tgsi_parse_context ctx = { };
    unsigned status = TGSI_PARSE_OK;
    status = tgsi_parse_init(&ctx, c->tokens);
@@ -491,13 +390,13 @@ etna_compile_parse_declarations(struct etna_compile *c)
          /* immediates are handled differently from other files; they are
           * not declared explicitly, and always add four components */
          const struct tgsi_full_immediate *imm = &ctx.FullToken.FullImmediate;
-         assert(c->imm_size <= (ETNA_MAX_IMM - 4));
+         assert(ir->imm_size <= (ETNA_MAX_IMM - 4));
 
          for (int i = 0; i < 4; ++i) {
-            unsigned idx = c->imm_size++;
+            unsigned idx = ir->imm_size++;
 
-            c->imm_data[idx] = imm->u[i].Uint;
-            c->imm_contents[idx] = ETNA_IMMEDIATE_CONSTANT;
+            ir->imm_data[idx] = imm->u[i].Uint;
+            ir->imm_contents[idx] = ETNA_IMMEDIATE_CONSTANT;
          }
       }
       break;
@@ -1098,7 +997,7 @@ trans_if(const struct instr_translater *t, struct etna_compile *c,
          const struct tgsi_full_instruction *inst, struct etna_inst_src *src)
 {
    struct etna_compile_frame *f = &c->frame_stack[c->frame_sp++];
-   struct etna_inst_src imm_0 = alloc_imm_f32(c, 0.0f);
+   struct etna_inst_src imm_0 = eir_immediate_f32(c->ir, 0.0f);
 
    /* push IF to stack */
    f->type = ETNA_COMPILE_FRAME_IF;
@@ -1361,11 +1260,11 @@ trans_lit(const struct instr_translater *t, struct etna_compile *c,
       ins.opcode = INST_OPCODE_SELECT;
       ins.cond = INST_CONDITION_LT;
       ins.dst = etna_native_to_dst(inner_temp, INST_COMPS_Y);
-      ins.src[0] = ins.src[2] = alloc_imm_f32(c, 0.0);
+      ins.src[0] = ins.src[2] = eir_immediate_f32(c->ir, 0.0);
       ins.src[1] = swizzle(src[0], SWIZZLE(Y, Y, Y, Y));
       emit_inst(c, &ins);
    } else if (uif(get_imm_u32(c, &src[0], 1)) < 0)
-      src_y = alloc_imm_f32(c, 0.0);
+      src_y = eir_immediate_f32(c->ir, 0.0);
    else
       src_y = swizzle(src[0], SWIZZLE(Y, Y, Y, Y));
 
@@ -1378,7 +1277,7 @@ trans_lit(const struct instr_translater *t, struct etna_compile *c,
       ins.opcode = INST_OPCODE_SELECT;
       ins.cond = INST_CONDITION_GT;
       ins.dst = etna_native_to_dst(inner_temp, INST_COMPS_W);
-      ins.src[0] = ins.src[2] = alloc_imm_f32(c, 128.);
+      ins.src[0] = ins.src[2] = eir_immediate_f32(c->ir, 128.);
       ins.src[1] = swizzle(src[0], SWIZZLE(W, W, W, W));
       emit_inst(c, &ins);
       ins.cond = INST_CONDITION_LT;
@@ -1387,9 +1286,9 @@ trans_lit(const struct instr_translater *t, struct etna_compile *c,
       ins.src[1] = src_w;
       emit_inst(c, &ins);
    } else if (uif(get_imm_u32(c, &src[0], 3)) < -128.)
-      src_w = alloc_imm_f32(c, -128.);
+      src_w = eir_immediate_f32(c->ir, -128.);
    else if (uif(get_imm_u32(c, &src[0], 3)) > 128.)
-      src_w = alloc_imm_f32(c, 128.);
+      src_w = eir_immediate_f32(c->ir, 128.);
    else
       src_w = swizzle(src[0], SWIZZLE(W, W, W, W));
 
@@ -1482,7 +1381,7 @@ trans_trig(const struct instr_translater *t, struct etna_compile *c,
          .sat = 0,
          .dst = etna_native_to_dst(temp, INST_COMPS_Z),
          .src[0] = src[0], /* any swizzling happens here */
-         .src[1] = alloc_imm_f32(c, 1.0f / M_PI),
+         .src[1] = eir_immediate_f32(c->ir, 1.0f / M_PI),
       });
       emit_inst(c, &(struct etna_inst) {
          .opcode = inst->Instruction.Opcode == TGSI_OPCODE_COS
@@ -1511,7 +1410,7 @@ trans_trig(const struct instr_translater *t, struct etna_compile *c,
          .dst = etna_native_to_dst(temp, INST_COMPS_X | INST_COMPS_Y |
                                          INST_COMPS_Z | INST_COMPS_W),
          .src[0] = src[0], /* any swizzling happens here */
-         .src[1] = alloc_imm_f32(c, 2.0f / M_PI),
+         .src[1] = eir_immediate_f32(c->ir, 2.0f / M_PI),
       });
       emit_inst(c, &(struct etna_inst) {
          .opcode = inst->Instruction.Opcode == TGSI_OPCODE_COS
@@ -1603,7 +1502,7 @@ trans_trig(const struct instr_translater *t, struct etna_compile *c,
       p->sat = inst->Instruction.Saturate;
       p->dst = convert_dst(c, &inst->Dst[0]),
       p->src[0] = swizzle(t0s, SWIZZLE(Y, W, Y, W));
-      p->src[1] = alloc_imm_f32(c, 0.2225);
+      p->src[1] = eir_immediate_f32(c->ir, 0.2225);
       p->src[2] = swizzle(t0s, SWIZZLE(X, Z, X, Z));
 
       for (int i = 0; &ins[i] <= p; i++)
@@ -1660,12 +1559,12 @@ trans_sampler(const struct instr_translater *t, struct etna_compile *c,
       ins[0].opcode = INST_OPCODE_MUL;
       ins[0].dst = etna_native_to_dst(temp, INST_COMPS_X);
       ins[0].src[0] = src[0];
-      ins[0].src[1] = alloc_imm(c, ETNA_IMMEDIATE_TEXRECT_SCALE_X, unit);
+      ins[0].src[1] = eir_immediate(c->ir, ETNA_IMMEDIATE_TEXRECT_SCALE_X, unit);
 
       ins[1].opcode = INST_OPCODE_MUL;
       ins[1].dst = etna_native_to_dst(temp, INST_COMPS_Y);
       ins[1].src[0] = src[0];
-      ins[1].src[1] = alloc_imm(c, ETNA_IMMEDIATE_TEXRECT_SCALE_Y, unit);
+      ins[1].src[1] = eir_immediate(c->ir, ETNA_IMMEDIATE_TEXRECT_SCALE_Y, unit);
 
       emit_inst(c, &ins[0]);
       emit_inst(c, &ins[1]);
@@ -1909,7 +1808,7 @@ etna_compile_add_z_div_if_needed(struct etna_compile *c)
             .opcode = INST_OPCODE_MUL,
             .dst = etna_native_to_dst(pos_reg->native, INST_COMPS_Z),
             .src[0] = etna_native_to_src(pos_reg->native, SWIZZLE(Z, Z, Z, Z)),
-            .src[1] = alloc_imm_f32(c, 0.5f),
+            .src[1] = eir_immediate_f32(c->ir, 0.5f),
          });
       }
    }
@@ -1971,12 +1870,14 @@ assign_uniforms(struct etna_compile_file *file, unsigned base)
 static void
 assign_constants_and_immediates(struct etna_compile *c)
 {
+   struct eir *ir = c->ir;
+
    assign_uniforms(&c->file[TGSI_FILE_CONSTANT], 0);
    /* immediates start after the constants */
-   c->imm_base = c->file[TGSI_FILE_CONSTANT].reg_size * 4;
-   assign_uniforms(&c->file[TGSI_FILE_IMMEDIATE], c->imm_base / 4);
-   DBG_F(ETNA_DBG_COMPILER_MSGS, "imm base: %i size: %i", c->imm_base,
-         c->imm_size);
+   ir->imm_base = c->file[TGSI_FILE_CONSTANT].reg_size * 4;
+   assign_uniforms(&c->file[TGSI_FILE_IMMEDIATE], ir->imm_base / 4);
+   DBG_F(ETNA_DBG_COMPILER_MSGS, "imm base: %i size: %i", ir->imm_base,
+         ir->imm_size);
 }
 
 /* Assign declared samplers to native texture units */
@@ -2229,11 +2130,12 @@ fill_in_vs_outputs(struct etna_shader_variant *sobj, struct etna_compile *c)
 static bool
 etna_compile_check_limits(struct etna_compile *c)
 {
+   struct eir *ir = c->ir;
    int max_uniforms = (c->info.processor == PIPE_SHADER_VERTEX)
                          ? c->specs->max_vs_uniforms
                          : c->specs->max_ps_uniforms;
    /* round up number of uniforms, including immediates, in units of four */
-   int num_uniforms = c->imm_base / 4 + (c->imm_size + 3) / 4;
+   int num_uniforms = ir->imm_base / 4 + (ir->imm_size + 3) / 4;
 
    if (!c->specs->has_icache && c->inst_ptr > c->specs->max_instructions) {
       DBG("Number of instructions (%d) exceeds maximum %d", c->inst_ptr,
@@ -2259,8 +2161,8 @@ etna_compile_check_limits(struct etna_compile *c)
       return false;
    }
 
-   if (c->imm_base > c->specs->num_constants) {
-      DBG("Number of constants (%d) exceeds maximum %d", c->imm_base,
+   if (ir->imm_base > c->specs->num_constants) {
+      DBG("Number of constants (%d) exceeds maximum %d", ir->imm_base,
           c->specs->num_constants);
    }
 
@@ -2270,13 +2172,14 @@ etna_compile_check_limits(struct etna_compile *c)
 static void
 copy_uniform_state_to_shader(struct etna_compile *c, struct etna_shader_variant *sobj)
 {
-   uint32_t count = c->imm_size;
+   struct eir *ir = c->ir;
+   uint32_t count = ir->imm_size;
    struct etna_shader_uniform_info *uinfo = &sobj->uniforms;
 
-   uinfo->const_count = c->imm_base;
+   uinfo->const_count = ir->imm_base;
    uinfo->imm_count = count;
-   uinfo->imm_data = mem_dup(c->imm_data, count * sizeof(*c->imm_data));
-   uinfo->imm_contents = mem_dup(c->imm_contents, count * sizeof(*c->imm_contents));
+   uinfo->imm_data = mem_dup(ir->imm_data, count * sizeof(*ir->imm_data));
+   uinfo->imm_contents = mem_dup(ir->imm_contents, count * sizeof(*ir->imm_contents));
 
    etna_set_shader_uniforms_dirty_flags(sobj);
 }

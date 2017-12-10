@@ -28,6 +28,10 @@
 #ifndef H_EIR
 #define H_EIR
 
+#include "etnaviv_asm.h"
+#include "etnaviv_context.h"
+#include "util/u_math.h"
+
 /* XXX some of these are pretty arbitrary limits, may be better to switch
  * to dynamic allocation at some point.
  */
@@ -40,6 +44,11 @@
 
 struct eir
 {
+   /* Immediate data */
+   enum etna_immediate_contents imm_contents[ETNA_MAX_IMM];
+   uint32_t imm_data[ETNA_MAX_IMM];
+   uint32_t imm_base; /* base of immediates (in 32 bit units) */
+   uint32_t imm_size; /* size of immediates (in 32 bit units) */
 };
 
 struct eir *
@@ -47,5 +56,26 @@ eir_create(void);
 
 void
 eir_destroy(struct eir *ir);
+
+
+struct etna_inst_src
+eir_immediate(struct eir *ir, enum etna_immediate_contents contents,
+              uint32_t data);
+
+struct etna_inst_src
+eir_immediate_vec4(struct eir *ir, enum etna_immediate_contents contents,
+                   const uint32_t *values);
+
+static inline struct etna_inst_src
+eir_immediate_u32(struct eir *ir, uint32_t ui)
+{
+   return eir_immediate(ir, ETNA_IMMEDIATE_CONSTANT, ui);
+}
+
+static inline struct etna_inst_src
+eir_immediate_f32(struct eir *ir, float f)
+{
+   return eir_immediate(ir, ETNA_IMMEDIATE_CONSTANT, fui(f));
+}
 
 #endif // H_EIR
