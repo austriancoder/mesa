@@ -50,6 +50,7 @@
 
 #include "etnaviv_compiler.h"
 
+#include "eir/eir.h"
 #include "etnaviv_asm.h"
 #include "etnaviv_context.h"
 #include "etnaviv_debug.h"
@@ -144,6 +145,7 @@ struct etna_compile_file {
 
 /* scratch area for compiling shader, freed after compilation finishes */
 struct etna_compile {
+   struct eir *ir;
    const struct tgsi_token *tokens;
    bool free_tokens;
 
@@ -2306,6 +2308,13 @@ etna_compile_shader(struct etna_shader_variant *v)
    if (!c)
       return false;
 
+   c->ir = eir_create();
+   if (!c->ir)
+   {
+      ret = false;
+      goto out;
+   }
+
    memset(&c->lbl_usage, -1, sizeof(c->lbl_usage));
 
    const struct tgsi_token *tokens = v->shader->tokens;
@@ -2468,6 +2477,9 @@ etna_compile_shader(struct etna_shader_variant *v)
 out:
    if (c->free_tokens)
       FREE((void *)c->tokens);
+
+   if (c->ir)
+      eir_destroy(c->ir);
 
    FREE(c->labels);
    FREE(c);

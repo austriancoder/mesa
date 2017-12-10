@@ -26,6 +26,8 @@ files_etnaviv = files(
   'hw/state_3d.xml.h',
   'hw/state_blt.xml.h',
   'hw/state.xml.h',
+  'eir/eir.c',
+  'eir/eir.h',
   'etnaviv_asm.c',
   'etnaviv_asm.h',
   'etnaviv_blend.c',
