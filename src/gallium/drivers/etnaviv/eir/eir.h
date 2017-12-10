@@ -42,8 +42,21 @@
 #define ETNA_MAX_DEPTH (32)
 #define ETNA_MAX_INSTRUCTIONS (2048)
 
+struct eir_instruction
+{
+   struct list_head node;  /* entry in eir_block's instruction list */
+};
+
+struct eir_block
+{
+   struct list_head node;  /* entry in eir's block list */
+   struct list_head instr_list;
+};
+
 struct eir
 {
+   struct list_head block_list;
+
    /* Immediate data */
    enum etna_immediate_contents imm_contents[ETNA_MAX_IMM];
    uint32_t imm_data[ETNA_MAX_IMM];
@@ -57,6 +70,11 @@ eir_create(void);
 void
 eir_destroy(struct eir *ir);
 
+struct eir_block *
+eir_block_create(struct eir *ir);
+
+struct eir_instruction *
+eir_instruction_create(struct eir_block *block);
 
 struct etna_inst_src
 eir_immediate(struct eir *ir, enum etna_immediate_contents contents,

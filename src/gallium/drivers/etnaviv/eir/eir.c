@@ -43,6 +43,31 @@ eir_destroy(struct eir *ir)
    ralloc_free(ir);
 }
 
+struct eir_block *
+eir_block_create(struct eir *ir)
+{
+   assert(ir);
+   struct eir_block *block = rzalloc(ir, struct eir_block);
+
+   list_inithead(&block->node);
+   list_inithead(&block->instr_list);
+
+   list_add(&block->node, &ir->block_list);
+
+   return block;
+}
+
+struct eir_instruction *
+eir_instruction_create(struct eir_block *block)
+{
+   assert(block);
+   struct eir_instruction *instr = rzalloc(block, struct eir_instruction);
+
+   list_add(&instr->node, &block->instr_list);
+
+   return instr;
+}
+
 struct etna_inst_src
 eir_immediate(struct eir *ir, enum etna_immediate_contents contents,
               uint32_t data)
