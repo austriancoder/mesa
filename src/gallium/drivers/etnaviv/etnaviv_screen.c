@@ -29,7 +29,7 @@
 
 #include "hw/common.xml.h"
 
-#include "etnaviv_compiler.h"
+#include "eir/eir.h"
 #include "etnaviv_context.h"
 #include "etnaviv_debug.h"
 #include "etnaviv_fence.h"
