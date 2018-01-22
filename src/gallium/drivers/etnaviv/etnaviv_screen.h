@@ -33,6 +33,7 @@
 #include "os/os_thread.h"
 #include "pipe/p_screen.h"
 #include "renderonly/renderonly.h"
+#include "util/disk_cache.h"
 #include "util/slab.h"
 
 struct etna_bo;
@@ -68,6 +69,7 @@ struct etna_screen {
    struct renderonly *ro;
 
    struct slab_parent_pool transfer_pool;
+   struct disk_cache *disk_shader_cache;
 
    uint32_t model;
    uint32_t revision;

@@ -79,6 +79,8 @@ etna_screen_destroy(struct pipe_screen *pscreen)
 {
    struct etna_screen *screen = etna_screen(pscreen);
 
+   disk_cache_destroy(screen->disk_shader_cache);
+
    if (screen->pipe)
       etna_pipe_del(screen->pipe);
 
@@ -92,6 +94,36 @@ etna_screen_destroy(struct pipe_screen *pscreen)
       etna_device_del(screen->dev);
 
    FREE(screen);
+}
+
+static void etna_disk_cache_create(struct etna_screen *screen)
+{
+   uint32_t mesa_timestamp;
+
+   if (disk_cache_get_function_timestamp(etna_disk_cache_create,
+                                         &mesa_timestamp)) {
+      char *timestamp_str;
+      int res = -1;
+
+      res = asprintf(&timestamp_str, "%u", mesa_timestamp);
+      if (res != -1) {
+         char name[128];
+
+         util_snprintf(name, sizeof(name), "gc%x_%04x", screen->model,
+                       screen->revision);
+
+         screen->disk_shader_cache = disk_cache_create(name, timestamp_str, 0);
+         free(timestamp_str);
+      }
+   }
+}
+
+static struct disk_cache *
+etna_get_disk_shader_cache(struct pipe_screen *pscreen)
+{
+   struct etna_screen *priv = etna_screen(pscreen);
+
+   return priv->disk_shader_cache;
 }
 
 static const char *
@@ -978,11 +1010,15 @@ etna_screen_create(struct etna_device *dev, struct etna_gpu *gpu,
    pscreen->is_format_supported = etna_screen_is_format_supported;
    pscreen->query_dmabuf_modifiers = etna_screen_query_dmabuf_modifiers;
 
+   pscreen->get_disk_shader_cache = etna_get_disk_shader_cache;
+
    etna_fence_screen_init(pscreen);
    etna_query_screen_init(pscreen);
    etna_resource_screen_init(pscreen);
 
    slab_create_parent(&screen->transfer_pool, sizeof(struct etna_transfer), 16);
+
+   etna_disk_cache_create(screen);
 
    return pscreen;
 
