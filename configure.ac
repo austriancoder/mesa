@@ -3160,6 +3160,7 @@ AC_CONFIG_FILES([Makefile
                  src/util/tests/string_buffer/Makefile
                  src/util/tests/vma/Makefile
                  src/util/xmlpool/Makefile
+                 src/vivante/Makefile
                  src/vulkan/Makefile])
 
 AC_OUTPUT
