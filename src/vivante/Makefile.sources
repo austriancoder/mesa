@@ -1,0 +1,19 @@
+VIVANTE_GC_FILES = \
+	gc/gc_disasm.c \
+	gc/gc_instr.c \
+	gc/gc_pack.c \
+	$()
+
+VIVANTE_COMPILER_FILES = \
+	compiler/eir_compiler.c \
+	compiler/eir_dump.c \
+	compiler/eir_legalize.c \
+	compiler/eir_live_variables.c \
+	compiler/eir_nir.c \
+	compiler/eir_nir_lower_io.c \
+	compiler/eir_nir_lower_uniforms.c \
+	compiler/eir_register_allocate.c \
+	compiler/eir_shader.c \
+	compiler/eir.c \
+	compiler/nir_fixup_register.c \
+  	$()

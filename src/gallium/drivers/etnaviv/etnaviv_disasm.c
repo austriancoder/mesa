@@ -27,6 +27,11 @@
 #include "etnaviv_disasm.h"
 
 #include <assert.h>
+#include <stdio.h>
+#include "vivante/gc/gc_disasm.h"
+#include "util/ralloc.h"
+
+#if 0
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -600,6 +605,7 @@ print_instr(uint32_t *dwords, int n, enum debug_t debug)
 
    printf("\n");
 }
+#endif
 
 void
 etna_disasm(uint32_t *dwords, int sizedwords, enum debug_t debug)
@@ -609,5 +615,16 @@ etna_disasm(uint32_t *dwords, int sizedwords, enum debug_t debug)
    assert((sizedwords % 2) == 0);
 
    for (i = 0; i < sizedwords; i += 4)
-      print_instr(&dwords[i], i / 4, debug);
+   {
+      uint32_t *raw = &dwords[i];
+      const char *str = gc_disasm(raw);
+
+      printf("%04d: ", i / 4);
+      if (debug & PRINT_RAW)
+         printf("%08x %08x %08x %08x  ", raw[0], raw[1], raw[2],
+             raw[3]);
+
+      printf("%s\n", str);
+      ralloc_free((void *)str);
+   }
 }
