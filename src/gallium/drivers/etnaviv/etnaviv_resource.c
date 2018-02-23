@@ -77,6 +77,25 @@ static uint64_t layout_to_modifier(enum etna_surface_layout layout)
    }
 }
 
+static inline const char *
+layout_to_string(unsigned layout)
+{
+   switch (layout) {
+   case ETNA_LAYOUT_LINEAR:
+      return "linear";
+   case ETNA_LAYOUT_TILED:
+      return "tiled";
+   case ETNA_LAYOUT_SUPER_TILED:
+      return "super tiled";
+   case ETNA_LAYOUT_MULTI_TILED:
+      return "multi tiled";
+   case ETNA_LAYOUT_MULTI_SUPERTILED:
+      return "muulti super tiled";
+   default:
+      unreachable("unexpected/invalid layout");
+   }
+}
+
 /* A tile is 4x4 pixels, having 'screen->specs.bits_per_tile' of tile status.
  * So, in a buffer of N pixels, there are N / (4 * 4) tiles.
  * We need N * screen->specs.bits_per_tile / (4 * 4) bits of tile status, or
@@ -187,11 +206,12 @@ etna_resource_alloc(struct pipe_screen *pscreen, unsigned layout,
 
    DBG_F(ETNA_DBG_RESOURCE_MSGS,
          "target=%d, format=%s, %ux%ux%u, array_size=%u, "
-         "last_level=%u, nr_samples=%u, usage=%u, bind=%x, flags=%x",
+         "last_level=%u, nr_samples=%u, usage=%u, bind=%x, flags=%x, "
+         "layout=%s",
          templat->target, util_format_name(templat->format), templat->width0,
          templat->height0, templat->depth0, templat->array_size,
          templat->last_level, templat->nr_samples, templat->usage,
-         templat->bind, templat->flags);
+         templat->bind, templat->flags, layout_to_string(layout));
 
    /* Determine scaling for antialiasing, allow override using debug flag */
    int nr_samples = templat->nr_samples;
