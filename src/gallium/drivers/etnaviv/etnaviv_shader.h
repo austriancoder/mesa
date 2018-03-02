@@ -30,6 +30,7 @@
 #include "pipe/p_state.h"
 
 struct etna_context;
+struct etna_screen;
 struct etna_shader_variant;
 
 struct etna_shader_key
@@ -73,10 +74,16 @@ bool
 etna_shader_update_vertex(struct etna_context *ctx);
 
 struct etna_shader_variant *
-etna_shader_variant(struct etna_shader *shader, struct etna_shader_key key,
-                   struct pipe_debug_callback *debug);
+etna_shader_variant(struct etna_screen *screen, struct etna_shader *shader,
+                   struct etna_shader_key key, struct pipe_debug_callback *debug);
 
 void
 etna_shader_init(struct pipe_context *pctx);
+
+bool
+etna_shader_cache_init(struct etna_screen *screen);
+
+void
+etna_shader_cache_destroy(struct etna_screen *screen);
 
 #endif

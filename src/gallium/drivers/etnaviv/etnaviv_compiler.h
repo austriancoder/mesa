@@ -132,6 +132,9 @@ etna_link_shader(struct etna_shader_link_info *info,
                  const struct etna_shader_variant *vs, const struct etna_shader_variant *fs);
 
 void
+build_output_index(struct etna_shader_variant *sobj);
+
+void
 etna_destroy_shader(struct etna_shader_variant *shader);
 
 #endif

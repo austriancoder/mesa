@@ -76,6 +76,14 @@ struct etna_screen {
    struct etna_specs specs;
 
    uint32_t drm_version;
+
+   /* Shader cache in memory.
+    *
+    * The shader cache is per screen (= per process), never saved to
+    * disk, and skips redundant shader compilations from TGSI to bytecode.
+    */
+   mtx_t shader_cache_mutex;
+   struct hash_table *shader_cache;
 };
 
 static inline struct etna_screen *

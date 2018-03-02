@@ -115,7 +115,7 @@ etna_get_vs(struct etna_context *ctx, struct etna_shader_key key)
 {
    const struct etna_shader_variant *old = ctx->shader.vs;
 
-   ctx->shader.vs = etna_shader_variant(ctx->shader.bind_vs, key, &ctx->debug);
+   ctx->shader.vs = etna_shader_variant(ctx->screen, ctx->shader.bind_vs, key, &ctx->debug);
 
    if (!ctx->shader.vs)
       return false;
@@ -131,7 +131,7 @@ etna_get_fs(struct etna_context *ctx, struct etna_shader_key key)
 {
    const struct etna_shader_variant *old = ctx->shader.fs;
 
-   ctx->shader.fs = etna_shader_variant(ctx->shader.bind_fs, key, &ctx->debug);
+   ctx->shader.fs = etna_shader_variant(ctx->screen, ctx->shader.bind_fs, key, &ctx->debug);
 
    if (!ctx->shader.fs)
       return false;

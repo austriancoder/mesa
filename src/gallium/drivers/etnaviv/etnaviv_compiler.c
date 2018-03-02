@@ -2141,7 +2141,7 @@ fill_in_vs_inputs(struct etna_shader_variant *sobj, struct etna_compile *c)
 }
 
 /* build two-level output index [Semantic][Index] for fast linking */
-static void
+void
 build_output_index(struct etna_shader_variant *sobj)
 {
    int total = 0;

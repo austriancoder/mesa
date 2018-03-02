@@ -36,6 +36,7 @@
 #include "etnaviv_format.h"
 #include "etnaviv_query.h"
 #include "etnaviv_resource.h"
+#include "etnaviv_shader.h"
 #include "etnaviv_translate.h"
 
 #include "util/os_time.h"
@@ -79,6 +80,8 @@ static void
 etna_screen_destroy(struct pipe_screen *pscreen)
 {
    struct etna_screen *screen = etna_screen(pscreen);
+
+   etna_shader_cache_destroy(screen);
 
    if (screen->pipe)
       etna_pipe_del(screen->pipe);
@@ -984,6 +987,7 @@ etna_screen_create(struct etna_device *dev, struct etna_gpu *gpu,
    etna_fence_screen_init(pscreen);
    etna_query_screen_init(pscreen);
    etna_resource_screen_init(pscreen);
+   etna_shader_cache_init(screen);
 
    slab_create_parent(&screen->transfer_pool, sizeof(struct etna_transfer), 16);
 

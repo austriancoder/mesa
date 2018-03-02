@@ -33,8 +33,214 @@
 #include "etnaviv_util.h"
 
 #include "tgsi/tgsi_parse.h"
+#include "util/crc32.h"
+#include "util/debug.h"
+#include "util/hash_table.h"
 #include "util/u_math.h"
 #include "util/u_memory.h"
+
+/**
+ * Return the TGSI binary in a buffer. The first 4 bytes contain its size as
+ * integer.
+ */
+static void *
+get_tgsi_binary(struct etna_shader *shader, struct etna_shader_key key)
+{
+   if (!env_var_as_boolean("ETNA_MESA_IN_MEMORY_CACHE", false))
+      return NULL;
+
+   const unsigned tgsi_size = tgsi_num_tokens(shader->tokens) *
+               sizeof(struct tgsi_token);
+   const unsigned size = 4 + tgsi_size + sizeof(key);
+   char *result = (char*)MALLOC(size);
+
+   if (!result)
+      return NULL;
+
+   *((uint32_t*)result) = size;
+   memcpy(result + 4, shader->tokens, tgsi_size);
+   memcpy(result + 4 + tgsi_size, &key, sizeof(key));
+
+   return result;
+}
+
+/** Copy "data" to "ptr" and return the next dword following copied data. */
+static uint32_t *
+write_data(uint32_t *ptr, const void *data, unsigned size)
+{
+   memcpy(ptr, data, size);
+   ptr += DIV_ROUND_UP(size, 4);
+   return ptr;
+}
+
+/** Read data from "ptr". Return the next dword following the data. */
+static uint32_t *
+read_data(uint32_t *ptr, void *data, unsigned size)
+{
+   memcpy(data, ptr, size);
+   ptr += DIV_ROUND_UP(size, 4);
+   return ptr;
+}
+
+/**
+ * Write the size as uint followed by the data. Return the next dword
+ * following the copied data.
+ */
+static uint32_t *
+write_chunk(uint32_t *ptr, const void *data, unsigned size)
+{
+   *ptr++ = size;
+   return write_data(ptr, data, size);
+}
+
+/**
+ * Read the size as uint followed by the data. Return both via parameters.
+ * Return the next dword following the data.
+ */
+static uint32_t *
+read_chunk(uint32_t *ptr, void **data, unsigned *size)
+{
+   *size = *ptr++;
+   assert(*data == NULL);
+   *data = malloc(*size);
+   return read_data(ptr, *data, *size);
+}
+
+/**
+ * Return the shader binary in a buffer. The first 4 bytes contain its size
+ * as integer.
+ */
+static void *
+etna_get_shader_binary(struct etna_shader_variant *v)
+{
+   unsigned size =
+      4 + /* total size */
+      4 + /* CRC32 of the data below */
+      align(sizeof(*v), 4) +
+
+      /* uniforms */
+      4 + align(v->uniforms.imm_count, 4) +
+      4 + align(v->uniforms.imm_count, 4) +
+
+      /* asm */
+      4 + align(v->code_size, 4);
+   void *buffer = CALLOC(1, size);
+   uint32_t *ptr = (uint32_t*)buffer;
+
+   if (!buffer)
+      return NULL;
+
+   *ptr++ = size;
+   ptr++; /* CRC32 is calculated at the end. */
+
+   ptr = write_data(ptr, v, sizeof(*v));
+   ptr = write_chunk(ptr, v->uniforms.imm_contents, v->uniforms.imm_count);
+   ptr = write_chunk(ptr, v->uniforms.imm_data, v->uniforms.imm_count);
+   ptr = write_chunk(ptr, v->code, v->code_size);
+
+   assert((char *)ptr - (char *)buffer == size);
+
+   /* Compute CRC32. */
+   ptr = (uint32_t*)buffer;
+   ptr++;
+   *ptr = util_hash_crc32(ptr + 1, size - 8);
+
+   return buffer;
+}
+
+static bool
+etna_load_shader_binary(struct etna_shader_variant *v, void *binary)
+{
+   uint32_t *ptr = (uint32_t*)binary;
+   uint32_t size = *ptr++;
+   uint32_t crc32 = *ptr++;
+
+   if (util_hash_crc32(ptr, size - 8) != crc32) {
+      fprintf(stderr, "radeonsi: binary shader has invalid CRC32\n");
+      return false;
+   }
+
+   ptr = read_data(ptr, v, sizeof(*v));
+
+   /* null pointes */
+   v->bo = NULL;
+   v->next = NULL;
+   v->shader = NULL;
+   v->uniforms.imm_contents = NULL;
+   v->uniforms.imm_data = NULL;
+
+   ptr = read_chunk(ptr, (void**)&v->uniforms.imm_contents, &v->uniforms.imm_count);
+   ptr = read_chunk(ptr, (void**)&v->uniforms.imm_data, &v->uniforms.imm_count);
+   ptr = read_chunk(ptr, (void**)&v->code, &v->code_size);
+
+   /* rebuild linking table */
+   build_output_index(v);
+
+   return true;
+}
+
+/**
+ * Insert a shader into the cache. It's assumed the shader is not in the cache.
+ * Use si_shader_cache_load_shader before calling this.
+ *
+ * Returns false on failure, in which case the tgsi_binary should be freed.
+ */
+static bool
+etna_shader_cache_insert_shader(struct etna_screen *screen, void *tgsi_binary,
+                                struct etna_shader_variant *v)
+{
+   void *hw_binary = etna_get_shader_binary(v);
+
+   if (!hw_binary)
+      return false;
+
+   if (_mesa_hash_table_insert(screen->shader_cache, tgsi_binary,
+                  hw_binary) == NULL) {
+      FREE(hw_binary);
+      return false;
+   }
+
+   return true;
+}
+
+static bool
+etna_shader_cache_load_shader(struct etna_screen *screen,
+                              void *tgsi_binary,
+                              struct etna_shader_variant *v)
+{
+   struct hash_entry *entry =
+      _mesa_hash_table_search(screen->shader_cache, tgsi_binary);
+   if (!entry)
+      return false;
+
+   return etna_load_shader_binary(v, entry->data);
+}
+
+static uint32_t
+etna_shader_cache_key_hash(const void *key)
+{
+   /* The first dword is the key size. */
+   return util_hash_crc32(key, *(uint32_t*)key);
+}
+
+static bool
+etna_shader_cache_key_equals(const void *a, const void *b)
+{
+   uint32_t *keya = (uint32_t*)a;
+   uint32_t *keyb = (uint32_t*)b;
+
+   /* The first dword is the key size. */
+   if (*keya != *keyb)
+      return false;
+
+   return memcmp(keya, keyb, *keya) == 0;
+}
+
+static void etna_destroy_shader_cache_entry(struct hash_entry *entry)
+{
+   FREE((void*)entry->key);
+   FREE(entry->data);
+}
 
 /* Upload shader code to bo, if not already done */
 static bool etna_icache_upload_shader(struct etna_context *ctx, struct etna_shader_variant *v)
@@ -317,9 +523,11 @@ etna_shader_update_vertex(struct etna_context *ctx)
 }
 
 static struct etna_shader_variant *
-create_variant(struct etna_shader *shader, struct etna_shader_key key)
+create_variant(struct etna_screen *screen, struct etna_shader *shader,
+               struct etna_shader_key key)
 {
    struct etna_shader_variant *v = CALLOC_STRUCT(etna_shader_variant);
+   void *tgsi_binary;
    int ret;
 
    if (!v)
@@ -328,11 +536,33 @@ create_variant(struct etna_shader *shader, struct etna_shader_key key)
    v->shader = shader;
    v->key = key;
 
-   ret = etna_compile_shader(v);
-   if (!ret) {
-      debug_error("compile failed!");
-      goto fail;
+   tgsi_binary = get_tgsi_binary(shader, key);
+
+   /* Try to load the shader from the shader cache. */
+   mtx_lock(&screen->shader_cache_mutex);
+
+   if (tgsi_binary && etna_shader_cache_load_shader(screen, tgsi_binary, v)) {
+      FREE(tgsi_binary);
+
+      /* HACK-ALERT */
+      v->shader = shader;
+      v->key = key;
+
+   } else {
+      /* Compile the shader if it hasn't been loaded from the cache. */
+      ret = etna_compile_shader(v);
+      if (!ret) {
+         debug_error("compile failed!");
+         mtx_unlock(&screen->shader_cache_mutex);
+         FREE(tgsi_binary);
+         goto fail;
+      }
+
+		if (tgsi_binary && !etna_shader_cache_insert_shader(screen, tgsi_binary, v))
+         FREE(tgsi_binary);
    }
+
+   mtx_unlock(&screen->shader_cache_mutex);
 
    v->id = ++shader->variant_count;
 
@@ -344,8 +574,8 @@ fail:
 }
 
 struct etna_shader_variant *
-etna_shader_variant(struct etna_shader *shader, struct etna_shader_key key,
-                   struct pipe_debug_callback *debug)
+etna_shader_variant(struct etna_screen *screen, struct etna_shader *shader,
+                   struct etna_shader_key key, struct pipe_debug_callback *debug)
 {
    struct etna_shader_variant *v;
 
@@ -354,7 +584,7 @@ etna_shader_variant(struct etna_shader *shader, struct etna_shader_key key,
          return v;
 
    /* compile new variant if it doesn't exist already */
-   v = create_variant(shader, key);
+   v = create_variant(screen, shader, key);
    if (v) {
       v->next = shader->variants;
       shader->variants = v;
@@ -369,6 +599,7 @@ etna_create_shader_state(struct pipe_context *pctx,
                          const struct pipe_shader_state *pss)
 {
    struct etna_context *ctx = etna_context(pctx);
+   struct etna_screen *screen = ctx->screen;
    struct etna_shader *shader = CALLOC_STRUCT(etna_shader);
 
    if (!shader)
@@ -385,7 +616,7 @@ etna_create_shader_state(struct pipe_context *pctx,
        * actually compiled).
        */
       struct etna_shader_key key = {};
-      etna_shader_variant(shader, key, &ctx->debug);
+      etna_shader_variant(screen, shader, key, &ctx->debug);
    }
 
    return shader;
@@ -437,4 +668,26 @@ etna_shader_init(struct pipe_context *pctx)
    pctx->create_vs_state = etna_create_shader_state;
    pctx->bind_vs_state = etna_bind_vs_state;
    pctx->delete_vs_state = etna_delete_shader_state;
+}
+
+bool
+etna_shader_cache_init(struct etna_screen *screen)
+{
+   (void) mtx_init(&screen->shader_cache_mutex, mtx_plain);
+   screen->shader_cache =
+      _mesa_hash_table_create(NULL,
+               etna_shader_cache_key_hash,
+               etna_shader_cache_key_equals);
+
+   return screen->shader_cache != NULL;
+}
+
+void
+etna_shader_cache_destroy(struct etna_screen *screen)
+{
+   if (screen->shader_cache)
+      _mesa_hash_table_destroy(screen->shader_cache,
+               etna_destroy_shader_cache_entry);
+
+   mtx_destroy(&screen->shader_cache_mutex);
 }
