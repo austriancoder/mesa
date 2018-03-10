@@ -167,6 +167,8 @@ etna_create_sampler_view_state(struct pipe_context *pctx, struct pipe_resource *
          VIVS_TE_SAMPLER_CONFIG0_VWRAP(TEXTURE_WRAPMODE_CLAMP_TO_EDGE);
    }
 
+   sv->TE_SAMPLER_LINEAR_STRIDE = COND(res->layout == ETNA_LAYOUT_LINEAR, res->levels[0]->stride);
+
    return &sv->base;
 }
 
@@ -291,6 +293,14 @@ etna_emit_texture_state(struct etna_context *ctx)
                struct etna_sampler_view *sv = etna_sampler_view(ctx->sampler_view[x]);
                /*02400*/ EMIT_STATE_RELOC(TE_SAMPLER_LOD_ADDR(x, y),&sv->TE_SAMPLER_LOD_ADDR[y]);
             }
+         }
+      }
+   }
+   if (unlikely(ctx->specs.tex_astc && (dirty & (ETNA_DIRTY_SAMPLER_VIEWS)))) {
+      for (int x = 0; x < VIVS_TE_SAMPLER__LEN; ++x) {
+         if ((1 << x) & active_samplers) {
+            struct etna_sampler_view *sv = etna_sampler_view(ctx->sampler_view[x]);
+            /*02C00*/ EMIT_STATE(TE_SAMPLER_LINEAR_STRIDE(x), sv->TE_SAMPLER_LINEAR_STRIDE);
          }
       }
    }
