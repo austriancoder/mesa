@@ -767,6 +767,11 @@ etna_blit_rs(struct pipe_context *pctx, const struct pipe_blit_info *blit_info)
     * XXX this goes wrong when source surface is supertiled. */
    struct etna_context *ctx = etna_context(pctx);
    struct pipe_blit_info info = *blit_info;
+   struct etna_resource *src = etna_resource(blit_info->src.resource);
+   struct etna_resource *dst = etna_resource(blit_info->dst.resource);
+
+   DBG("src layout: %x - %s", src->layout, util_format_name(info.src.resource->format));
+   DBG("dst layout: %x - %s", dst->layout, util_format_name(info.dst.resource->format));
 
    if (info.src.resource->nr_samples > 1 &&
        info.dst.resource->nr_samples <= 1 &&
@@ -776,11 +781,15 @@ etna_blit_rs(struct pipe_context *pctx, const struct pipe_blit_info *blit_info)
       return;
    }
 
-   if (etna_try_rs_blit(pctx, blit_info))
+   if (etna_try_rs_blit(pctx, blit_info)) {
+      DBG("etna_try_rs_blit - ok");
       return;
+   }
 
-   if (util_try_blit_via_copy_region(pctx, blit_info))
+   if (util_try_blit_via_copy_region(pctx, blit_info)) {
+      DBG("util_try_blit_via_copy_region - ok");
       return;
+   }
 
    if (info.mask & PIPE_MASK_S) {
       DBG("cannot blit stencil, skipping");
@@ -796,6 +805,7 @@ etna_blit_rs(struct pipe_context *pctx, const struct pipe_blit_info *blit_info)
 
    etna_blit_save_state(ctx);
    util_blitter_blit(ctx->blitter, &info);
+   DBG("util_blitter_blit - ok");
 }
 
 void
