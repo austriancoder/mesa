@@ -28,6 +28,8 @@
 
 #include "hw/common.xml.h"
 
+#include "bmp.h"
+
 #include "etnaviv_clear_blit.h"
 #include "etnaviv_context.h"
 #include "etnaviv_emit.h"
@@ -783,12 +785,12 @@ etna_blit_rs(struct pipe_context *pctx, const struct pipe_blit_info *blit_info)
 
    if (etna_try_rs_blit(pctx, blit_info)) {
       DBG("etna_try_rs_blit - ok");
-      return;
+      goto dump;
    }
 
    if (util_try_blit_via_copy_region(pctx, blit_info)) {
       DBG("util_try_blit_via_copy_region - ok");
-      return;
+      goto dump;
    }
 
    if (info.mask & PIPE_MASK_S) {
@@ -806,6 +808,37 @@ etna_blit_rs(struct pipe_context *pctx, const struct pipe_blit_info *blit_info)
    etna_blit_save_state(ctx);
    util_blitter_blit(ctx->blitter, &info);
    DBG("util_blitter_blit - ok");
+
+dump:
+   if (unlikely(etna_mesa_debug & ETNA_DBG_DUMP_BLIT))
+   {
+      struct etna_resource *src = etna_resource(blit_info->src.resource);
+      struct etna_resource *dst = etna_resource(blit_info->dst.resource);
+      static unsigned cnt;
+      char name[255];
+      void *map;
+
+      pctx->flush(pctx, NULL, 0);
+
+      /* src */
+      snprintf(name, sizeof(name), "/tmp/blit_%08d_%s_%u_%u", cnt, "src", src->base.width0, src->base.height0);
+
+      etna_bo_cpu_prep(src->bo, DRM_ETNA_PREP_READ);
+      map = etna_bo_map(src->bo);
+      wrap_bmp_dump(map, src->base.width0, src->base.height0, src->base.width0 * 4, name);
+      etna_bo_cpu_fini(src->bo);
+
+      /* dst */
+      snprintf(name, sizeof(name), "/tmp/blit_%08d_%s_%u_%u", cnt, "dst", dst->base.width0, dst->base.height0);
+
+      etna_bo_cpu_prep(dst->bo, DRM_ETNA_PREP_READ);
+      map = etna_bo_map(dst->bo);
+      wrap_bmp_dump(map, dst->base.width0, dst->base.height0, dst->base.width0 * 4, name);
+      etna_bo_cpu_fini(dst->bo);
+
+      DBG("blit dump: %d", cnt);
+      cnt++;
+   }
 }
 
 void

@@ -69,6 +69,7 @@ static const struct debug_named_value debug_options[] = {
    {"draw_stall",     ETNA_DBG_DRAW_STALL, "Stall FE/PE after each rendered primitive"},
    {"shaderdb",       ETNA_DBG_SHADERDB, "Enable shaderdb output"},
    {"no_singlebuffer",ETNA_DBG_NO_SINGLEBUF, "Disable single buffer feature"},
+   {"dump_blit",      ETNA_DBG_DUMP_BLIT, "Dump src and dst of blit operations to /tmp/"},
    DEBUG_NAMED_VALUE_END
 };
 
