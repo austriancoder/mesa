@@ -52,6 +52,8 @@ files_etnaviv = files(
   'etnaviv_query.h',
   'etnaviv_query_hw.c',
   'etnaviv_query_hw.h',
+  'etnaviv_query_pm.c',
+  'etnaviv_query_pm.h',
   'etnaviv_query_sw.c',
   'etnaviv_query_sw.h',
   'etnaviv_rasterizer.c',
