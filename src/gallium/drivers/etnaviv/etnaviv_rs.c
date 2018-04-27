@@ -254,9 +254,10 @@ etna_rs_gen_clear_surface(struct etna_context *ctx, struct etna_surface *surf,
                           uint32_t clear_value)
 {
    struct etna_resource *dst = etna_resource(surf->base.texture);
+   const int layer = translate_rs_layer(surf->base.format);
    uint32_t format;
 
-   switch (util_format_get_blocksize(surf->base.format)) {
+   switch (util_format_get_blocksize(surf->base.format) / layer) {
    case 2:
       format = RS_FORMAT_A4R4G4B4;
       break;
