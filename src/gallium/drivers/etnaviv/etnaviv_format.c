@@ -48,9 +48,9 @@ struct etna_format {
 
 #define RS_FORMAT_NONE ~0
 
-#define RS_FORMAT_MASK        0xf
+#define RS_FORMAT_MASK        0x1f
 #define RS_FORMAT(x)          ((x) & RS_FORMAT_MASK)
-#define RS_FORMAT_RB_SWAP     0x10
+#define RS_FORMAT_RB_SWAP     0x20
 
 #define RS_LAYER_MASK         0x700
 #define RS_LAYER_SHIFT        8
