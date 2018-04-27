@@ -132,7 +132,7 @@ etna_set_framebuffer_state(struct pipe_context *pctx,
 
       pipe_surface_reference(&cs->cbuf, &cbuf->base);
       cs->PE_COLOR_FORMAT =
-         VIVS_PE_COLOR_FORMAT_FORMAT(translate_rs_format(cbuf->base.format)) |
+         VIVS_PE_COLOR_FORMAT_FORMAT(translate_pe_format(cbuf->base.format)) |
          VIVS_PE_COLOR_FORMAT_COMPONENTS__MASK |
          VIVS_PE_COLOR_FORMAT_OVERWRITE |
          COND(color_supertiled, VIVS_PE_COLOR_FORMAT_SUPER_TILED) |
