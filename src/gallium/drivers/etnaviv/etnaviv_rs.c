@@ -656,7 +656,7 @@ etna_try_rs_blit(struct pipe_context *pctx,
       goto manual;
 
    if (src->base.nr_samples > 1) {
-      uint32_t msaa_format = translate_msaa_format(src_format);
+      uint32_t msaa_format = translate_msaa_format(etna_compatible_rs_format(src_format));
       assert(msaa_format != ETNA_NO_MATCH);
       ts_mem_config |= VIVS_TS_MEM_CONFIG_COLOR_COMPRESSION | msaa_format;
    }
