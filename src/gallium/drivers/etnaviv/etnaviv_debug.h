@@ -54,6 +54,9 @@
 #define ETNA_DBG_SHADERDB        0x800000 /* dump program compile information */
 #define ETNA_DBG_NO_SINGLEBUF    0x1000000 /* disable single buffer feature */
 
+/* Experimental features */
+#define ETNA_DBG_NIR		0x10000000 /* Enable NIR compiler */
+
 extern int etna_mesa_debug; /* set in etna_screen.c from ETNA_DEBUG */
 
 #define DBG_ENABLED(flag) unlikely(etna_mesa_debug & (flag))

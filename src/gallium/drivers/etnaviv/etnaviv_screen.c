@@ -66,6 +66,7 @@ static const struct debug_named_value debug_options[] = {
    {"cflush_all",     ETNA_DBG_CFLUSH_ALL, "Flush every cash before state update"},
    {"msaa2x",         ETNA_DBG_MSAA_2X, "Force 2x msaa"},
    {"msaa4x",         ETNA_DBG_MSAA_4X, "Force 4x msaa"},
+   {"nir",            ETNA_DBG_NIR, "Enable experimental NIR compiler"},
    {"flush_all",      ETNA_DBG_FLUSH_ALL, "Flush after every rendered primitive"},
    {"zero",           ETNA_DBG_ZERO, "Zero all resources after allocation"},
    {"draw_stall",     ETNA_DBG_DRAW_STALL, "Stall FE/PE after each rendered primitive"},
@@ -467,7 +468,10 @@ etna_screen_get_shader_param(struct pipe_screen *pscreen,
                 ? screen->specs.fragment_sampler_count
                 : screen->specs.vertex_sampler_count;
    case PIPE_SHADER_CAP_PREFERRED_IR:
-      return PIPE_SHADER_IR_TGSI;
+      if (etna_mesa_debug & ETNA_DBG_NIR)
+         return PIPE_SHADER_IR_NIR;
+      else
+         return PIPE_SHADER_IR_TGSI;
    case PIPE_SHADER_CAP_MAX_CONST_BUFFER_SIZE:
       return 4096;
    case PIPE_SHADER_CAP_TGSI_DROUND_SUPPORTED:
@@ -477,7 +481,10 @@ etna_screen_get_shader_param(struct pipe_screen *pscreen,
    case PIPE_SHADER_CAP_TGSI_ANY_INOUT_DECL_RANGE:
       return false;
    case PIPE_SHADER_CAP_SUPPORTED_IRS:
-      return 0;
+      if (etna_mesa_debug & ETNA_DBG_NIR)
+         return (1 << PIPE_SHADER_IR_TGSI) | (1 << PIPE_SHADER_IR_NIR);
+      else
+         return (1 << PIPE_SHADER_IR_TGSI);
    case PIPE_SHADER_CAP_MAX_UNROLL_ITERATIONS_HINT:
       return 32;
    case PIPE_SHADER_CAP_MAX_SHADER_BUFFERS:
