@@ -36,8 +36,14 @@ noinst_PROGRAMS = etnaviv_compiler
 etnaviv_compiler_SOURCES = \
 	etnaviv_compiler_cmdline.c
 
+# XXX: Required due to the C++ sources in libnir
+nodist_EXTRA_etnaviv_compiler_SOURCES = dummy.cpp
+
 etnaviv_compiler_LDADD = \
 	libetnaviv.la \
+	$(top_builddir)/src/vivante/gc/libvivante_gc.la \
+	$(top_builddir)/src/vivante/compiler/libvivante_compiler.la \
+	$(top_builddir)/src/compiler/nir/libnir.la \
 	$(top_builddir)/src/gallium/auxiliary/libgallium.la \
 	$(top_builddir)/src/util/libmesautil.la \
 	$(GALLIUM_COMMON_LIB_DEPS) \
