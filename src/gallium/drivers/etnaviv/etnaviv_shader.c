@@ -24,6 +24,8 @@
  *    Wladimir J. van der Laan <laanwj@gmail.com>
  */
 
+#include "vivante/compiler/eir_shader.h"
+
 #include "etnaviv_shader.h"
 
 #include "etnaviv_compiler.h"
@@ -35,6 +37,44 @@
 #include "tgsi/tgsi_parse.h"
 #include "util/u_math.h"
 #include "util/u_memory.h"
+
+static struct eir_shader *
+create_shader_stateobj(struct pipe_context *pctx, const struct pipe_shader_state *cso,
+                       gl_shader_stage type)
+{
+   struct etna_context *ctx = etna_context(pctx);
+   struct eir_compiler *compiler = ctx->screen->compiler;
+
+   return eir_shader_create(compiler, cso, type, &ctx->debug);
+}
+
+static void *
+etna_fs_state_create(struct pipe_context *pctx, const struct pipe_shader_state *cso)
+{
+   return create_shader_stateobj(pctx, cso, MESA_SHADER_FRAGMENT);
+}
+
+static void
+etna_fs_state_delete(struct pipe_context *pctx, void *hwcso)
+{
+   struct eir_shader *so = hwcso;
+
+   eir_shader_destroy(so);
+}
+
+static void *
+etna_vs_state_create(struct pipe_context *pctx, const struct pipe_shader_state *cso)
+{
+   return create_shader_stateobj(pctx, cso, MESA_SHADER_VERTEX);
+}
+
+static void
+etna_vs_state_delete(struct pipe_context *pctx, void *hwcso)
+{
+   struct eir_shader *so = hwcso;
+
+   eir_shader_destroy(so);
+}
 
 /* Upload shader code to bo, if not already done */
 static bool etna_icache_upload_shader(struct etna_context *ctx, struct etna_shader_variant *v)
@@ -222,11 +262,16 @@ etna_link_shaders(struct etna_context *ctx, struct compiled_shader_state *cs,
 bool
 etna_shader_link(struct etna_context *ctx)
 {
-   if (!ctx->shader.vs || !ctx->shader.fs)
+   if (etna_mesa_debug & ETNA_DBG_NIR) {
+      /* TODO */
       return false;
+   } else {
+      if (!ctx->shader.vs || !ctx->shader.fs)
+         return false;
 
-   /* re-link vs and fs if needed */
-   return etna_link_shaders(ctx, &ctx->shader_state, ctx->shader.vs, ctx->shader.fs);
+      /* re-link vs and fs if needed */
+      return etna_link_shaders(ctx, &ctx->shader_state, ctx->shader.vs, ctx->shader.fs);
+   }
 }
 
 static bool
@@ -430,10 +475,18 @@ etna_bind_vs_state(struct pipe_context *pctx, void *hwcso)
 void
 etna_shader_init(struct pipe_context *pctx)
 {
-   pctx->create_fs_state = etna_create_shader_state;
+   if (etna_mesa_debug & ETNA_DBG_NIR) {
+      pctx->create_fs_state = etna_fs_state_create;
+      pctx->delete_fs_state = etna_fs_state_delete;
+      pctx->create_vs_state = etna_vs_state_create;
+      pctx->delete_vs_state = etna_vs_state_delete;
+   } else {
+      pctx->create_fs_state = etna_create_shader_state;
+      pctx->delete_fs_state = etna_delete_shader_state;
+      pctx->create_vs_state = etna_create_shader_state;
+      pctx->delete_vs_state = etna_delete_shader_state;
+   }
+
    pctx->bind_fs_state = etna_bind_fs_state;
-   pctx->delete_fs_state = etna_delete_shader_state;
-   pctx->create_vs_state = etna_create_shader_state;
    pctx->bind_vs_state = etna_bind_vs_state;
-   pctx->delete_vs_state = etna_delete_shader_state;
 }
