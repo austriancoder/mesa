@@ -45,6 +45,7 @@ instruction_uniform_count(const struct gc_instr *instr)
             break;
          }
       }
+
       if (!is_duplicate)
          count++;
    }
