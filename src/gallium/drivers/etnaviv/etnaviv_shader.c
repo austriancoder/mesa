@@ -40,12 +40,12 @@
 
 static struct eir_shader *
 create_shader_stateobj(struct pipe_context *pctx, const struct pipe_shader_state *cso,
-                       enum gl_shader_stage type)
+                       gl_shader_stage type)
 {
-   struct etnaviv_context *ctx = etnaviv_context(pctx);
-   struct eir_compiler *compiler = ctx->compiler;
+   struct etna_context *ctx = etna_context(pctx);
+   struct eir_compiler *compiler = ctx->screen->compiler;
 
-   return eir_shader_create(compiler, cso, type, &ctx->debug_callback);
+   return eir_shader_create(compiler, cso, type, &ctx->debug);
 }
 
 static void *

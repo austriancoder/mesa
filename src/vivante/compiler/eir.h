@@ -29,9 +29,9 @@
 #define H_EIR
 
 #include <assert.h>
-#include "gc/gc_instr.h"
 #include "util/bitset.h"
 #include "util/list.h"
+#include "vivante/gc/gc_instr.h"
 
 #ifdef __cplusplus
 extern "C"{
