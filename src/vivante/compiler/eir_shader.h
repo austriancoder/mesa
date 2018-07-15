@@ -122,7 +122,7 @@ eir_shader_destroy(struct eir_shader *shader);
 
 struct eir_shader_variant *
 eir_shader_variant(struct eir_shader *shader, struct eir_shader_key key,
-                  struct pipe_debug_callback *debug);
+                   struct pipe_debug_callback *debug);
 
 void
 eir_dump_shader(struct eir_shader_variant *variant);

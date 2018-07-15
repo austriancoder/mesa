@@ -80,7 +80,7 @@ struct etna_screen {
 
    struct etna_specs specs;
 
-   const struct eir_compiler *compiler;
+   struct eir_compiler *compiler;
 
    uint32_t drm_version;
 };
