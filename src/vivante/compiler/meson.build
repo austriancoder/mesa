@@ -26,7 +26,6 @@ libvivante_compiler_files = files(
   'eir_legalize.c',
   'eir_live_variables.c',
   'eir_nir.c',
-  'eir_nir_lower_io.c',
   'eir_nir_lower_uniforms.c',
   'eir_register_allocate.c',
   'eir_shader.c',
