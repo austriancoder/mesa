@@ -28,6 +28,34 @@
 #include <gtest/gtest.h>
 #include "vivante/compiler/eir.h"
 
+TEST (LegalizeTest, OneDifferenUniform)
+{
+   struct eir *ir = eir_create();
+   ASSERT_TRUE(ir);
+
+   struct eir_block *block = eir_block_create(ir);
+   ASSERT_TRUE(block);
+
+   struct gc_instr_dst d = {};
+   struct gc_instr_src s0 = {
+      .reg = 0,
+      .rgroup = GC_REGISTER_GROUP_UNIFORM
+   };
+   struct gc_instr_src s1 = {
+      .reg = 1,
+      .rgroup = GC_REGISTER_GROUP_UNIFORM
+   };
+
+   eir_ADD(block, &d, &s0, &s1);
+
+   eir_legalize(ir);
+   ASSERT_EQ(list_length(&block->instr_list), 2);
+
+   eir_dump(ir);
+
+   eir_destroy(ir);
+}
+
 TEST (LegalizeTest, DifferenUniforms)
 {
    struct eir *ir = eir_create();
@@ -38,18 +66,24 @@ TEST (LegalizeTest, DifferenUniforms)
 
    struct gc_instr_dst d = {};
    struct gc_instr_src s0 = {
-      .reg = 1,
+      .reg = 0,
       .rgroup = GC_REGISTER_GROUP_UNIFORM
    };
    struct gc_instr_src s1 = {
+      .reg = 1,
+      .rgroup = GC_REGISTER_GROUP_UNIFORM
+   };
+   struct gc_instr_src s2 = {
       .reg = 2,
       .rgroup = GC_REGISTER_GROUP_UNIFORM
    };
 
-   eir_ADD(block, &d, &s0, &s1);
+   eir_MAD(block, &d, &s0, &s1, &s2);
 
    eir_legalize(ir);
-   ASSERT_EQ(list_length(&block->instr_list), 2);
+   ASSERT_EQ(list_length(&block->instr_list), 3);
+
+   eir_dump(ir);
 
    eir_destroy(ir);
 }
