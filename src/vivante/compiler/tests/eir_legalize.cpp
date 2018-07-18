@@ -48,7 +48,8 @@ TEST (LegalizeTest, DifferenUniforms)
 
    eir_ADD(block, &d, &s0, &s1);
 
-   ASSERT_TRUE(eir_legalize(ir));
+   eir_legalize(ir);
+   ASSERT_EQ(list_length(&block->instr_list), 2);
 
    eir_destroy(ir);
 }
@@ -73,7 +74,8 @@ TEST (LegalizeTest, SameUniforms)
 
    eir_ADD(block, &d, &s0, &s1);
 
-   ASSERT_FALSE(eir_legalize(ir));
+   eir_legalize(ir);
+   ASSERT_EQ(list_length(&block->instr_list), 1);
 
    eir_destroy(ir);
 }
