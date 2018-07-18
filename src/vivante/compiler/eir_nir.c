@@ -119,6 +119,7 @@ eir_optimize_nir(struct eir_shader *shader, struct nir_shader *s)
 
    OPT_V(s, nir_lower_locals_to_regs);
 
+   OPT_V(s, eir_nir_legalize_uniforms);
    OPT_V(s, eir_nir_lower_uniforms);
 
    OPT_V(s, nir_convert_from_ssa, false);
