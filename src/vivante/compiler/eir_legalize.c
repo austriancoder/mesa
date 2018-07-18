@@ -54,8 +54,6 @@ instruction_uniform_mask(const struct gc_instr *instr)
    return mask;
 }
 
-#include <stdio.h>
-
 #define for_each_bit(b, dword)                          \
    for (uint32_t __dword = (dword);                     \
         (b) = __builtin_ffs(__dword) - 1, __dword;      \
@@ -92,8 +90,10 @@ legalize_uniform_usage(struct eir_block *block, struct eir_instruction *instr)
          continue;
       }
 
-      printf("@@!! too many uniforms per instr!\n");
+      /* generate move instruction to temporary */
       eir_MOV(block, &dst, src);
+
+      /* modify instruction to use temp register instead of uniform */
       src->reg = dst.reg;
       src->rgroup = GC_REGISTER_GROUP_TEMP;
    }
