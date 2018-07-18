@@ -48,6 +48,9 @@ eir_optimize_nir(struct eir_shader *shader, struct nir_shader *s);
 bool
 eir_nir_lower_uniforms(struct nir_shader *shader);
 
+bool
+eir_nir_legalize_uniforms(struct nir_shader *shader);
+
 void
 nir_fixup_register(struct nir_shader *shader);
 
