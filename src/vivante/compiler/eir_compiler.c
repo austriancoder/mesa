@@ -507,6 +507,8 @@ emit_loop(struct eir_context *ctx, nir_loop *nloop)
 static void
 emit_cf_list(struct eir_context *ctx, struct exec_list *list)
 {
+   assert(!exec_list_is_empty(list));
+
    foreach_list_typed(nir_cf_node, node, node, list) {
       switch (node->type) {
       case nir_cf_node_block:
