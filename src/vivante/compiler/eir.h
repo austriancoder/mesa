@@ -126,7 +126,7 @@ eir_instruction_create(struct eir_block *block, enum gc_op opc);
 void
 eir_update_ip_data(struct eir *ir);
 
-bool
+void
 eir_legalize(struct eir *ir);
 
 void
