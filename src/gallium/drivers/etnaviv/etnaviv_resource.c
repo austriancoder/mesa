@@ -275,7 +275,6 @@ etna_resource_alloc(struct pipe_screen *pscreen, unsigned layout,
    rsc->halign = halign;
 
    pipe_reference_init(&rsc->base.reference, 1);
-   list_inithead(&rsc->list);
 
    size = setup_miptree(rsc, paddingX, paddingY, msaa_xscale, msaa_yscale);
 
@@ -466,8 +465,6 @@ etna_resource_destroy(struct pipe_screen *pscreen, struct pipe_resource *prsc)
    if (rsc->scanout)
       renderonly_scanout_destroy(rsc->scanout, etna_screen(pscreen)->ro);
 
-   list_delinit(&rsc->list);
-
    pipe_resource_reference(&rsc->texture, NULL);
    pipe_resource_reference(&rsc->external, NULL);
 
@@ -501,7 +498,6 @@ etna_resource_from_handle(struct pipe_screen *pscreen,
    *prsc = *tmpl;
 
    pipe_reference_init(&prsc->reference, 1);
-   list_inithead(&rsc->list);
    prsc->screen = pscreen;
 
    rsc->bo = etna_screen_bo_from_handle(pscreen, handle, &level->stride);
@@ -621,19 +617,31 @@ void
 etna_resource_used(struct etna_context *ctx, struct pipe_resource *prsc,
                    enum etna_resource_status status)
 {
+   struct etna_screen *screen = ctx->screen;
    struct etna_resource *rsc;
 
    if (!prsc)
       return;
 
    rsc = etna_resource(prsc);
+
+   if (rsc->pending_ctx != ctx) {
+      struct pipe_context *pctx = &rsc->pending_ctx->base;
+
+      /* if we are pending read or write by any other context */
+      if ((status & ETNA_PENDING_WRITE) && rsc->status)
+         pctx->flush(pctx, NULL, 0);
+
+      /* if reading a resource pending a write */
+      if ((status & ETNA_PENDING_READ) && (rsc->status & ETNA_PENDING_WRITE))
+         pctx->flush(pctx, NULL, 0);
+   }
+
    rsc->status |= status;
 
-   /* TODO resources can actually be shared across contexts,
-    * so I'm not sure a single list-head will do the trick? */
-   debug_assert((rsc->pending_ctx == ctx) || !rsc->pending_ctx);
-   list_delinit(&rsc->list);
-   list_addtail(&rsc->list, &ctx->used_resources);
+   debug_assert(!_mesa_set_search(screen->used_resources, rsc));
+
+   _mesa_set_add(screen->used_resources, rsc);
    rsc->pending_ctx = ctx;
 }
 

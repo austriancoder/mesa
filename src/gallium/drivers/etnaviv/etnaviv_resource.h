@@ -83,9 +83,6 @@ struct etna_resource {
 
    enum etna_resource_status status;
 
-   /* resources accessed by queued but not flushed draws are tracked
-    * in the used_resources list. */
-   struct list_head list;
    struct etna_context *pending_ctx;
 };
 
