@@ -25,6 +25,8 @@
  *    Christian Gmeiner <christian.gmeiner@gmail.com>
  */
 
+#include "compiler/nir/nir.h"
+#include "compiler/nir_types.h"
 #include "eir_compiler.h"
 #include "eir_nir.h"
 #include "eir_shader.h"
@@ -120,6 +122,51 @@ fail:
    return NULL;
 }
 
+static int
+type_size_vec4(const struct glsl_type *type)
+{
+   switch (glsl_get_base_type(type)) {
+   case GLSL_TYPE_UINT:
+   case GLSL_TYPE_INT:
+   case GLSL_TYPE_FLOAT:
+   case GLSL_TYPE_FLOAT16:
+   case GLSL_TYPE_BOOL:
+   case GLSL_TYPE_DOUBLE:
+   case GLSL_TYPE_UINT16:
+   case GLSL_TYPE_INT16:
+   case GLSL_TYPE_UINT8:
+   case GLSL_TYPE_INT8:
+   case GLSL_TYPE_UINT64:
+   case GLSL_TYPE_INT64:
+      if (glsl_type_is_matrix(type)) {
+         const struct glsl_type *col_type = glsl_get_column_type(type);
+         unsigned col_slots = glsl_type_is_dual_slot(col_type) ? 2 : 1;
+         return glsl_get_matrix_columns(type) * col_slots;
+      } else {
+         /* Regardless of size of vector, it gets a vec4. This is bad
+          * packing for things like floats, but otherwise arrays become a
+          * mess. Hopefully a later pass over the code can pack scalars
+          * down if appropriate.
+          */
+         return glsl_type_is_dual_slot(type) ? 2 : 1;
+      }
+   case GLSL_TYPE_ARRAY:
+   case GLSL_TYPE_STRUCT:
+   case GLSL_TYPE_SUBROUTINE:
+   case GLSL_TYPE_SAMPLER:
+   case GLSL_TYPE_ATOMIC_UINT:
+   case GLSL_TYPE_IMAGE:
+   case GLSL_TYPE_VOID:
+   case GLSL_TYPE_ERROR:
+   case GLSL_TYPE_INTERFACE:
+   case GLSL_TYPE_FUNCTION:
+   default:
+      unreachable("todo");
+   }
+
+   return 0;
+}
+
 struct eir_shader *
 eir_shader_create(struct eir_compiler *compiler,
                   const struct pipe_shader_state *cso,
@@ -138,10 +185,9 @@ eir_shader_create(struct eir_compiler *compiler,
    if (cso->type == PIPE_SHADER_IR_NIR) {
       /* we take ownership of the reference */
       nir = cso->ir.nir;
-/*
-      NIR_PASS_V(nir, nir_lower_io, nir_var_all, ir3_glsl_type_size,
+
+      NIR_PASS_V(nir, nir_lower_io, nir_var_all, type_size_vec4,
             (nir_lower_io_options)0);
-*/
    } else {
       debug_assert(cso->type == PIPE_SHADER_IR_TGSI);
 
