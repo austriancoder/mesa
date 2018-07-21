@@ -44,6 +44,7 @@
 #include "util/u_string.h"
 
 #include "vivante/compiler/eir_compiler.h"
+#include "vivante/compiler/eir_nir.h"
 
 #include "state_tracker/drm_driver.h"
 
@@ -396,6 +397,13 @@ etna_screen_get_paramf(struct pipe_screen *pscreen, enum pipe_capf param)
 
    debug_printf("unknown paramf %d", param);
    return 0;
+}
+
+static const void *
+etna_screen_get_compiler_options(struct pipe_screen *pscreen,
+                                 enum pipe_shader_ir ir, unsigned shader)
+{
+   return eir_get_compiler_options();
 }
 
 static int
@@ -1002,6 +1010,7 @@ etna_screen_create(struct etna_device *dev, struct etna_gpu *gpu,
    pscreen->get_param = etna_screen_get_param;
    pscreen->get_paramf = etna_screen_get_paramf;
    pscreen->get_shader_param = etna_screen_get_shader_param;
+   pscreen->get_compiler_options = etna_screen_get_compiler_options;
 
    pscreen->get_name = etna_screen_get_name;
    pscreen->get_vendor = etna_screen_get_vendor;
