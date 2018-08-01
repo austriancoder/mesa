@@ -36,7 +36,7 @@ struct pipe_screen *imx_drm_screen_create(int fd)
    struct renderonly ro = {
       .create_for_resource = renderonly_create_kms_dumb_buffer_for_resource,
       .kms_fd = fd,
-      .gpu_fd = open("/dev/dri/renderD128", O_RDWR | O_CLOEXEC)
+      .gpu_fd = loader_open_name("etnaviv", DRM_NODE_RENDER)
    };
 
    if (ro.gpu_fd < 0)
