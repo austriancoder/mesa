@@ -82,6 +82,85 @@ loader_open_device(const char *device_name)
    return fd;
 }
 
+static int
+open_minor(int minor, int type)
+{
+   const char *dev_name;
+   char buf[64];
+
+   switch (type) {
+   case DRM_NODE_PRIMARY:
+      dev_name = DRM_DEV_NAME;
+      break;
+   case DRM_NODE_CONTROL:
+      dev_name = DRM_CONTROL_DEV_NAME;
+      break;
+   case DRM_NODE_RENDER:
+      dev_name = DRM_RENDER_DEV_NAME;
+      break;
+   default:
+      return -EINVAL;
+   };
+
+   sprintf(buf, dev_name, DRM_DIR_NAME, minor);
+
+   return loader_open_device(buf);
+}
+
+static int minor_base(int type)
+{
+    switch (type) {
+    case DRM_NODE_PRIMARY:
+        return 0;
+    case DRM_NODE_CONTROL:
+        return 64;
+    case DRM_NODE_RENDER:
+        return 128;
+    default:
+        return -1;
+    };
+}
+
+int
+loader_open_name(const char *name, int type)
+{
+   int base = minor_base(type);
+   drmVersionPtr version;
+   int i, fd;
+   char *id;
+
+   if (base < 0)
+      return -1;
+
+   /*
+   * Open the first minor number that matches the driver name and isn't
+   * already in use.  If it's in use it will have a busid assigned already.
+   */
+   for (i = base; i < base + DRM_MAX_MINOR; i++) {
+      if ((fd = open_minor(i, type)) >= 0) {
+         if ((version = drmGetVersion(fd))) {
+            if (!strcmp(version->name, name)) {
+               drmFreeVersion(version);
+               id = drmGetBusid(fd);
+               drmMsg("drmGetBusid returned '%s'\n", id ? id : "NULL");
+               if (!id || !*id) {
+                  if (id)
+                     drmFreeBusid(id);
+                  return fd;
+               } else {
+                  drmFreeBusid(id);
+               }
+            } else {
+               drmFreeVersion(version);
+            }
+         }
+         close(fd);
+      }
+   }
+
+   return -1;
+}
+
 #if defined(HAVE_LIBDRM)
 #ifdef USE_DRICONF
 static const char __driConfigOptionsLoader[] =
