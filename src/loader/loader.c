@@ -51,6 +51,8 @@
 #endif
 #endif
 
+#include "util/u_string.h"
+
 #define __IS_LOADER
 #include "pci_id_driver_map.h"
 
@@ -99,15 +101,16 @@ open_minor(int minor, int type)
       dev_name = DRM_RENDER_DEV_NAME;
       break;
    default:
-      return -EINVAL;
-   };
+      unreachable("invalid DRM node type");
+   }
 
-   sprintf(buf, dev_name, DRM_DIR_NAME, minor);
+   util_snprintf(buf, sizeof(buf), dev_name, DRM_DIR_NAME, minor);
 
    return loader_open_device(buf);
 }
 
-static int minor_base(int type)
+static int
+minor_base(int type)
 {
     switch (type) {
     case DRM_NODE_PRIMARY:
@@ -117,45 +120,40 @@ static int minor_base(int type)
     case DRM_NODE_RENDER:
         return 128;
     default:
-        return -1;
-    };
+        unreachable("invalid DRM node type");
+    }
 }
 
 int
 loader_open_name(const char *name, int type)
 {
-   int base = minor_base(type);
+   const int base = minor_base(type);
    drmVersionPtr version;
    int i, fd;
-   char *id;
-
-   if (base < 0)
-      return -1;
 
    /*
    * Open the first minor number that matches the driver name and isn't
-   * already in use.  If it's in use it will have a busid assigned already.
+   * already in use.
    */
    for (i = base; i < base + DRM_MAX_MINOR; i++) {
-      if ((fd = open_minor(i, type)) >= 0) {
-         if ((version = drmGetVersion(fd))) {
-            if (!strcmp(version->name, name)) {
-               drmFreeVersion(version);
-               id = drmGetBusid(fd);
-               drmMsg("drmGetBusid returned '%s'\n", id ? id : "NULL");
-               if (!id || !*id) {
-                  if (id)
-                     drmFreeBusid(id);
-                  return fd;
-               } else {
-                  drmFreeBusid(id);
-               }
-            } else {
-               drmFreeVersion(version);
-            }
-         }
+      fd = open_minor(i, type);
+      if (fd < 0)
+         continue;
+
+      version = drmGetVersion(fd);
+      if (!version) {
          close(fd);
+         continue;
       }
+
+      if (strcmp(version->name, name)) {
+         drmFreeVersion(version);
+         close(fd);
+         continue;
+      }
+
+      drmFreeVersion(version);
+      return fd;
    }
 
    return -1;
