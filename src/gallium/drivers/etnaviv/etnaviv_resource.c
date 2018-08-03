@@ -638,6 +638,7 @@ etna_resource_used(struct etna_context *ctx, struct pipe_resource *prsc,
    }
 
    rsc->status |= status;
+   rsc->pending_ctx = ctx;
 
    debug_assert(!_mesa_set_search(screen->used_resources, rsc));
 
