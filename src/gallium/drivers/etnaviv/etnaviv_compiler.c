@@ -2276,7 +2276,7 @@ copy_uniform_state_to_shader(struct etna_compile *c, struct etna_shader_variant 
    uinfo->imm_data = mem_dup(c->imm_data, count * sizeof(*c->imm_data));
    uinfo->imm_contents = mem_dup(c->imm_contents, count * sizeof(*c->imm_contents));
 
-   etna_set_shader_uniforms_dirty_flags(sobj);
+   sobj->uniforms_dirty_bits = etna_uniforms_dirty_flags(&sobj->uniforms);
 }
 
 bool
