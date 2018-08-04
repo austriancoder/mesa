@@ -96,13 +96,13 @@ etna_uniforms_write(const struct etna_context *ctx,
    *size = uinfo->const_count + uinfo->imm_count;
 }
 
-void
-etna_set_shader_uniforms_dirty_flags(struct etna_shader_variant *sobj)
+uint32_t
+etna_uniforms_dirty_flags(const struct etna_shader_uniform_info *uinfo)
 {
    uint32_t dirty = 0;
 
-   for (uint32_t i = 0; i < sobj->uniforms.imm_count; i++) {
-      switch (sobj->uniforms.imm_contents[i]) {
+   for (uint32_t i = 0; i < uinfo->imm_count; i++) {
+      switch (uinfo->imm_contents[i]) {
       case ETNA_IMMEDIATE_UNUSED:
       case ETNA_IMMEDIATE_CONSTANT:
          break;
@@ -114,5 +114,5 @@ etna_set_shader_uniforms_dirty_flags(struct etna_shader_variant *sobj)
       }
    }
 
-   sobj->uniforms_dirty_bits = dirty;
+   return dirty;
 }

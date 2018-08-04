@@ -30,6 +30,7 @@
 #include <stdint.h>
 
 struct etna_context;
+struct etna_shader_uniform_info;
 struct etna_shader_variant;
 struct pipe_constant_buffer;
 
@@ -39,7 +40,7 @@ etna_uniforms_write(const struct etna_context *ctx,
                     struct pipe_constant_buffer *cb, uint32_t *uniforms,
                     unsigned *size);
 
-void
-etna_set_shader_uniforms_dirty_flags(struct etna_shader_variant *sobj);
+uint32_t
+etna_uniforms_dirty_flags(const struct etna_shader_uniform_info *uinfo);
 
 #endif /* ETNAVIV_UNIFORMS_H_ */
