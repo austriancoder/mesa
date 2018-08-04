@@ -27,16 +27,17 @@
 #ifndef ETNAVIV_UNIFORMS_H_
 #define ETNAVIV_UNIFORMS_H_
 
+#include <stdbool.h>
 #include <stdint.h>
 
 struct etna_context;
 struct etna_shader_uniform_info;
-struct etna_shader_variant;
 struct pipe_constant_buffer;
 
 void
 etna_uniforms_write(const struct etna_context *ctx,
-                    const struct etna_shader_variant *sobj,
+                    bool frag,
+                    const struct etna_shader_uniform_info *uinfo,
                     struct pipe_constant_buffer *cb, uint32_t *uniforms,
                     unsigned *size);
 

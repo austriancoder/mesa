@@ -594,12 +594,12 @@ etna_emit_state(struct etna_context *ctx)
 
    if (dirty & (uniform_dirty_bits | ctx->shader.fs->uniforms_dirty_bits))
       etna_uniforms_write(
-         ctx, ctx->shader.vs, &ctx->constant_buffer[PIPE_SHADER_VERTEX],
+         ctx, false, &ctx->shader.vs->uniforms, &ctx->constant_buffer[PIPE_SHADER_VERTEX],
          ctx->shader_state.VS_UNIFORMS, &ctx->shader_state.vs_uniforms_size);
 
    if (dirty & (uniform_dirty_bits | ctx->shader.vs->uniforms_dirty_bits))
       etna_uniforms_write(
-         ctx, ctx->shader.fs, &ctx->constant_buffer[PIPE_SHADER_FRAGMENT],
+         ctx, true, &ctx->shader.fs->uniforms, &ctx->constant_buffer[PIPE_SHADER_FRAGMENT],
          ctx->shader_state.PS_UNIFORMS, &ctx->shader_state.ps_uniforms_size);
 
    /**** Large dynamically-sized state ****/
