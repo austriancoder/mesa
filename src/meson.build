@@ -69,6 +69,9 @@ endif
 if with_dri_i965 or with_intel_vk
   subdir('intel')
 endif
+if with_gallium_etnaviv
+  subdir('vivante')
+endif
 subdir('mesa')
 subdir('loader')
 if with_platform_haiku

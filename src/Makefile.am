@@ -85,6 +85,10 @@ if HAVE_FREEDRENO_DRIVERS
 SUBDIRS += freedreno
 endif
 
+if HAVE_GALLIUM_ETNAVIV
+SUBDIRS += vivante
+endif
+
 if NEED_OPENGL_COMMON
 SUBDIRS += mesa
 endif
