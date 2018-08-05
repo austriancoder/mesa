@@ -20,7 +20,13 @@
 # FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 # DEALINGS IN THE SOFTWARE.
 
-inc_vivante = include_directories('.')
-
-subdir('gc')
-subdir('compiler')
+test(
+  'eir_assemble',
+  executable(
+    'eir_assemble', 'eir_assemble.cpp',
+    cpp_args : [cpp_vis_args, cpp_msvc_compat_args],
+    link_with: [libvivante_gc, libvivante_compiler, libmesa_util],
+    include_directories: [inc_common, inc_vivante],
+    dependencies : [dep_clock, dep_thread, idep_gtest],
+  )
+)

@@ -42,5 +42,6 @@ EXTRA_DIST = \
 	meson.build
 
 include Makefile.gc.am
+include Makefile.compiler.am
 
 CLEANFILES += $(BUILT_SOURCES)
