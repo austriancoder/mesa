@@ -81,6 +81,10 @@ if HAVE_BROADCOM_DRIVERS
 SUBDIRS += broadcom
 endif
 
+if HAVE_GALLIUM_ETNAVIV
+SUBDIRS += vivante
+endif
+
 if NEED_OPENGL_COMMON
 SUBDIRS += mesa
 endif

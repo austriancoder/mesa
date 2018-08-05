@@ -1,0 +1,8 @@
+VIVANTE_GC_FILES = \
+	gc/gc_disasm.c \
+	gc/gc_disasm.h \
+	gc/gc_instr.c \
+	gc/gc_instr.h \
+	gc/gc_pack.c \
+	gc/isa.xml.h \
+	$()
