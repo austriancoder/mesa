@@ -106,5 +106,5 @@ etnaviv_compiler = executable(
 
 driver_etnaviv = declare_dependency(
   compile_args : '-DGALLIUM_ETNAVIV',
-  link_with : [libetnaviv, libetnavivdrm],
+  link_with : [libetnaviv, libetnavivdrm, libvivante_gc],
 )
