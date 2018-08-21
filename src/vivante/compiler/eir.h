@@ -40,6 +40,7 @@ extern "C"{
 
 struct eir;
 struct eir_block;
+struct eir_ra_reg_set;
 
 struct eir_register
 {
@@ -183,6 +184,9 @@ eir_temp_range_start(const struct eir* ir, unsigned n);
 
 int
 eir_temp_range_end(const struct eir* ir, unsigned n);
+
+struct eir_ra_reg_set *
+eir_ra_alloc_reg_set(void *memctx);
 
 uint32_t *
 eir_assemble(struct eir *ir, struct eir_info *info);
