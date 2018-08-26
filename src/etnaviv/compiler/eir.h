@@ -29,6 +29,7 @@
 #define H_EIR
 
 #include <assert.h>
+#include "compiler/shader_enums.h"
 #include "util/list.h"
 #include "util/u_dynarray.h"
 #include "util/u_math.h"
@@ -40,6 +41,7 @@ extern "C"{
 
 struct eir;
 struct eir_block;
+struct eir_compiler;
 struct eir_ra_reg_set;
 
 struct eir_register
@@ -149,9 +151,12 @@ struct eir
     * and the used components per register */
    struct util_dynarray reg_alloc;
 
-   /* keep track of number of allocated uniforms */
+   /* keep track of number of allocated uniforms - pre RA */
    struct util_dynarray uniform_alloc;
    unsigned uniform_offset;
+
+   /* total used temp register - post RA */
+   unsigned num_temps;
 
    /* Live ranges of temp registers */
    int *temp_start, *temp_end;
@@ -300,6 +305,9 @@ eir_temp_range_end(const struct eir* ir, unsigned n);
 
 struct eir_ra_reg_set *
 eir_ra_alloc_reg_set(void *memctx);
+
+bool
+eir_register_allocate(struct eir *ir, gl_shader_stage type, struct eir_compiler *compiler);
 
 uint32_t *
 eir_assemble(const struct eir *ir, struct eir_info *info);
