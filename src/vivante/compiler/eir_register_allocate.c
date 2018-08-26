@@ -177,3 +177,122 @@ eir_ra_alloc_reg_set(void *memctx)
 
    return set;
 }
+
+static bool
+interferes(const struct eir *ir, int a, int b)
+{
+   return !((eir_temp_range_end(ir, a) <= eir_temp_range_start(ir, b)) ||
+            (eir_temp_range_end(ir, b) <= eir_temp_range_start(ir, a)));
+}
+
+static inline void
+reswizzle(struct eir_register *reg, int virt_reg)
+{
+   static const unsigned swizzle[EIR_NUM_REG_TYPES] = {
+      INST_SWIZ(0, 1, 2, 3), /* XYZW */
+      INST_SWIZ(0, 1, 2, 2), /* XYZ */
+      INST_SWIZ(0, 1, 3, 3), /* XYW */
+      INST_SWIZ(0, 2, 3, 3), /* XZW */
+      INST_SWIZ(1, 2, 3, 3), /* YZW */
+      INST_SWIZ(0, 1, 1, 1), /* XY */
+      INST_SWIZ(0, 2, 2, 2), /* XZ */
+      INST_SWIZ(0, 3, 3, 3), /* XW */
+      INST_SWIZ(1, 2, 2, 2), /* YZ */
+      INST_SWIZ(1, 3, 3, 3), /* YW */
+      INST_SWIZ(2, 3, 3, 3), /* ZW */
+      INST_SWIZ(0, 0, 0, 0), /* X */
+      INST_SWIZ(1, 1, 1 ,1), /* Y */
+      INST_SWIZ(2, 2, 2, 2), /* Z */
+      INST_SWIZ(3, 3, 3, 3), /* W */
+   };
+
+   const int type = eir_reg_get_type(virt_reg);
+   reg->swizzle = swizzle[type];
+}
+
+static void inline
+assign(struct eir_register *reg, struct ra_graph *g, unsigned *num_temps)
+{
+   if (reg->type != EIR_REG_TEMP)
+      return;
+
+   const int virt_reg = ra_get_node_reg(g, reg->index);
+
+   // convert virtual register back to hw register
+   // and change swizzle if needed
+   reg->index = etna_reg_get_base(virt_reg);
+
+   if (eir_reg_get_type(virt_reg) != EIR_REG_CLASS_VEC4)
+      reswizzle(reg, virt_reg);
+
+   *num_temps = MAX2(*num_temps, reg->index + 1);
+}
+
+bool
+eir_register_allocate(struct eir *ir, struct eir_compiler *compiler)
+{
+   const int num = util_dynarray_num_elements(&ir->reg_alloc, unsigned);
+   struct ra_graph *g = ra_alloc_interference_graph(compiler->set->regs, num);
+   unsigned num_temps = 0;
+
+   assert(g);
+
+   unsigned i = 0;
+   util_dynarray_foreach(&ir->reg_alloc, unsigned, num_components) {
+      switch (*num_components) {
+      case 1:
+         ra_set_node_class(g, i, compiler->set->class[EIR_REG_CLASS_VIRT_SCALAR]);
+         break;
+      case 2:
+         ra_set_node_class(g, i, compiler->set->class[EIR_REG_CLASS_VIRT_VEC2]);
+         break;
+      case 3:
+         ra_set_node_class(g, i, compiler->set->class[EIR_REG_CLASS_VIRT_VEC3]);
+         break;
+      case 4:
+         ra_set_node_class(g, i, compiler->set->class[EIR_REG_CLASS_VEC4]);
+         break;
+      default:
+         unreachable("not supported num_components");
+         break;
+      }
+
+      i++;
+   }
+
+   /* TODO: handle scalar opcodes */
+#if 0
+   eir_for_each_block(block, ir) {
+      eir_for_each_inst(inst, block) {
+         if (gc_op_is_scalar(inst->gc.opcode)) {
+            ra_set_node_reg(g, )
+         }
+      }
+   }
+#endif
+
+   for (unsigned i = 0; i < num; i++)
+      for (unsigned j = 0; j < i; j++)
+	      if (interferes(ir, i, j))
+	         ra_add_node_interference(g, i, j);
+
+   bool success = ra_allocate(g);
+   if (!success)
+      goto out;
+
+   eir_for_each_block(block, ir) {
+      eir_for_each_inst(inst, block) {
+         assign(&inst->dst, g, &num_temps);
+         assign(&inst->src[0], g, &num_temps);
+         assign(&inst->src[1], g, &num_temps);
+         assign(&inst->src[2], g, &num_temps);
+      }
+   }
+
+   ir->num_temps = num_temps;
+
+out:
+   ralloc_free(g);
+
+   return success;
+}
