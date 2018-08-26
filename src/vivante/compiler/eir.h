@@ -57,6 +57,9 @@ struct eir_block
    unsigned num;
 
    struct eir_block *successors[2];
+
+   /* per-pass extra block data */
+   void *data;
 };
 
 struct eir
@@ -64,6 +67,10 @@ struct eir
    struct list_head block_list;
 
    unsigned blocks;
+   unsigned reg_alloc;
+
+   /* Live ranges of temp registers */
+   int *temp_start, *temp_end;
 };
 
 struct eir_info {
@@ -84,6 +91,15 @@ eir_instruction_create(struct eir_block *block, enum gc_op opc);
 
 void
 eir_link_blocks(struct eir_block *predecessor, struct eir_block *successor);
+
+void
+eir_calculate_live_intervals(struct eir *ir);
+
+int
+eir_temp_range_start(const struct eir* ir, unsigned n);
+
+int
+eir_temp_range_end(const struct eir* ir, unsigned n);
 
 uint32_t *
 eir_assemble(struct eir *ir, struct eir_info *info);
