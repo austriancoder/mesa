@@ -163,3 +163,106 @@ eir_ra_alloc_reg_set(void *memctx)
 
    return set;
 }
+
+static bool
+interferes(const struct eir *ir, int a, int b)
+{
+   return !((eir_temp_range_end(ir, a) <= eir_temp_range_start(ir, b)) ||
+            (eir_temp_range_end(ir, b) <= eir_temp_range_start(ir, a)));
+}
+
+static void
+assign_register_src(struct gc_instr_src *src, struct ra_graph *g)
+{
+   if (!src->use)
+      return;
+
+   if (src->rgroup != GC_REGISTER_GROUP_TEMP)
+      return;
+
+   src->reg = ra_get_node_reg(g, src->reg);
+}
+
+static void
+assign_register_dst(struct gc_instr_dst *dst, struct ra_graph *g)
+{
+   dst->reg = ra_get_node_reg(g, dst->reg);
+}
+
+static void
+assign_register_alu(struct gc_instr *instr, struct ra_graph *g)
+{
+   struct gc_instr_alu *alu = &instr->alu;
+
+   for (unsigned i = 0; i < 3; i++)
+      assign_register_src(&alu->src[i], g);
+
+   if (gc_op_has_dst(instr->opcode))
+      assign_register_dst(&instr->dst, g);
+}
+
+static void
+assign_resgier_branch(struct gc_instr *instr, struct ra_graph *g)
+{
+   struct gc_instr_branch *branch = &instr->branch;
+
+   for (unsigned i = 0; i < 2; i++)
+      assign_register_src(&branch->src[i], g);
+}
+
+static void
+assign_register_sampler(struct gc_instr *instr, struct ra_graph *g)
+{
+   struct gc_instr_sampler *sampler = &instr->sampler;
+
+   assign_register_src(&sampler->src, g);
+   assign_register_dst(&instr->dst, g);
+}
+
+bool
+eir_register_allocate(struct eir *ir, struct eir_compiler *compiler)
+{
+   const int num = ir->reg_alloc;
+   struct ra_graph *g = ra_alloc_interference_graph(compiler->set->regs, num);
+   bool success;
+
+   assert(g);
+
+   for (unsigned i = 0; i < ir->reg_alloc; i++) {
+
+      ra_set_node_class(g, i, compiler->set->class[EIR_REG_CLASS_VEC4]);
+
+      for (unsigned j = 0; j < i; j++)
+	      if (interferes(ir, i, j))
+	         ra_add_node_interference(g, i, j);
+   }
+
+   success = ra_allocate(g);
+   if (!success)
+      goto out;
+
+   eir_for_each_block(block, ir) {
+      eir_for_each_inst(inst, block) {
+         struct gc_instr *gc = &inst->gc;
+
+         switch (gc->type) {
+         case GC_OP_TYPE_ALU:
+            assign_register_alu(gc, g);
+            break;
+
+         case GC_OP_TYPE_BRANCH:
+            assign_resgier_branch(gc, g);
+            break;
+
+         case GC_OP_TYPE_SAMPLER:
+            assign_register_sampler(gc, g);
+            break;
+         }
+      }
+   }
+
+out:
+   ralloc_free(g);
+
+   return success;
+}
