@@ -25,6 +25,8 @@ libvivante_compiler_files = files(
   'eir.h',
   'eir_compiler.h',
   'eir_live_variables.c',
+  'eir_nir.c',
+  'eir_nir.h',
   'eir_register_allocate.c',
 )
 
