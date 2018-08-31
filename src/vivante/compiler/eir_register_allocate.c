@@ -159,7 +159,6 @@ eir_ra_alloc_reg_set(void *memctx)
       }
    }
 
-	/* allocate and populate q_values: */
 	unsigned int **q_values = ralloc_array(set, unsigned *, EIR_NUM_REG_CLASSES);
    for (int i = 0; i < EIR_NUM_REG_CLASSES; i++) {
       q_values[i] = rzalloc_array(q_values, unsigned, EIR_NUM_REG_CLASSES);
