@@ -128,7 +128,7 @@ struct eir_ra_reg_set {
  * registers on top of the same base register.
  */
 static const unsigned int
-q_values[EIR_NUM_REG_CLASSES][EIR_NUM_REG_CLASSES] = {
+q_val[EIR_NUM_REG_CLASSES][EIR_NUM_REG_CLASSES] = {
    { 0, 4, 6, 4 },
    { 1, 3, 6, 3 },
    { 1, 4, 4, 2 },
@@ -140,7 +140,7 @@ eir_ra_alloc_reg_set(void *memctx)
 {
    struct eir_ra_reg_set *set = rzalloc(memctx, struct eir_ra_reg_set);
 
-   set->regs = ra_alloc_reg_set(set, MAX_TEMP, true);
+   set->regs = ra_alloc_reg_set(set, MAX_TEMP * EIR_NUM_REG_TYPES, true);
 
    for (int c = 0; c < EIR_NUM_REG_CLASSES; c++)
       set->class[c] = ra_alloc_reg_class(set->regs);
@@ -159,7 +159,17 @@ eir_ra_alloc_reg_set(void *memctx)
       }
    }
 
-   ra_set_finalize(set->regs, (unsigned int **)q_values);
+	/* allocate and populate q_values: */
+	unsigned int **q_values = ralloc_array(set, unsigned *, EIR_NUM_REG_CLASSES);
+   for (int i = 0; i < EIR_NUM_REG_CLASSES; i++) {
+      q_values[i] = rzalloc_array(q_values, unsigned, EIR_NUM_REG_CLASSES);
+      for (int j = 0; j < EIR_NUM_REG_CLASSES; j++)
+         q_values[i][j] = q_val[i][j];
+   }
+
+   ra_set_finalize(set->regs, q_values);
+
+   ralloc_free(q_values);
 
    return set;
 }
