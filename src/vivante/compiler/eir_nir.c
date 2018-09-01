@@ -34,7 +34,6 @@ static const nir_shader_compiler_options options = {
    .fuse_ffma = true,
    .lower_fpow = true,
    .lower_flrp32 = true,
-   .lower_negate = true,
    .max_unroll_iterations = 32
 };
 
