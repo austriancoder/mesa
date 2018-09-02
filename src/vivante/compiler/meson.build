@@ -23,11 +23,14 @@
 libvivante_compiler_files = files(
   'eir.c',
   'eir.h',
+  'eir_compiler.c',
   'eir_compiler.h',
   'eir_live_variables.c',
   'eir_nir.c',
   'eir_nir.h',
   'eir_register_allocate.c',
+  'eir_shader.c',
+  'eir_shader.h',
 )
 
 libvivante_compiler = static_library(

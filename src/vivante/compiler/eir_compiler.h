@@ -29,6 +29,13 @@
 #define H_EIR_COMPILER
 
 struct eir_ra_reg_set;
+struct eir_shader_variant;
+
+enum eir_compiler_debug {
+   EIR_DBG_SHADERDB = (1 << 0),
+   EIR_DBG_OPTMSGS  = (1 << 1),
+   EIR_DBG_MSGS     = (1 << 2),
+};
 
 /**
  * Compiler state saved across compiler invocations, for any expensive global
@@ -36,6 +43,17 @@ struct eir_ra_reg_set;
  */
 struct eir_compiler {
    struct eir_ra_reg_set *set;
+   enum eir_compiler_debug debug;
 };
+
+struct eir_compiler *
+eir_compiler_init(void);
+
+void
+eir_compiler_free(const struct eir_compiler *compiler);
+
+int
+eir_compile_shader_nir(struct eir_compiler *compiler,
+                       struct eir_shader_variant *v);
 
 #endif // H_EIR_COMPILER
