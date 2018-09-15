@@ -52,3 +52,14 @@ test(
     dependencies : [dep_clock, dep_thread, idep_gtest],
   )
 )
+
+test(
+  'eir_live_variables',
+  executable(
+    'eir_live_variables', 'eir_live_variables.cpp',
+    cpp_args : [cpp_vis_args, cpp_msvc_compat_args],
+    link_with: [libetnaviv_gc, libetnaviv_compiler, libmesa_util],
+    include_directories: [inc_common, inc_etnaviv],
+    dependencies : [dep_clock, dep_thread, idep_gtest],
+  )
+)
