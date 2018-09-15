@@ -26,10 +26,14 @@ compiler_libvivante_compiler_la_SOURCES = \
 	$(VIVANTE_COMPILER_FILES)
 
 check_PROGRAMS += \
-	compiler/tests/eir_assemble
+	compiler/tests/eir_assemble \
+	compiler/tests/eir_live_variables
 
 compiler_tests_eir_assemble_SOURCES = \
 	compiler/tests/eir_assemble.cpp
+
+compiler_tests_eir_live_variables_SOURCES = \
+	compiler/tests/eir_live_variables.cpp
 
 TESTS += $(check_PROGRAMS)
 

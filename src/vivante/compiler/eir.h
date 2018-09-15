@@ -110,6 +110,9 @@ struct eir
    /* keep track of number of allocated uniforms */
    struct util_dynarray uniform_alloc;
    unsigned uniform_offset;
+
+   /* Live ranges of temp registers */
+   int *temp_start, *temp_end;
 };
 
 struct eir_info {
