@@ -20,30 +20,19 @@
 # FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
 # IN THE SOFTWARE.
 
-AM_CPPFLAGS = \
-	-I$(top_srcdir)/include \
-	-I$(top_srcdir)/src \
-	-I$(top_srcdir)/src/gallium/auxiliary \
-	-I$(top_srcdir)/src/gallium/include \
-	$(DEFINES)
+noinst_LTLIBRARIES += compiler/libvivante_compiler.la
 
-include Makefile.sources
+compiler_libvivante_compiler_la_SOURCES = \
+	$(VIVANTE_COMPILER_FILES)
 
-lib_LTLIBRARIES =
-check_LTLIBRARIES =
-noinst_DATA =
-noinst_HEADERS =
-noinst_LTLIBRARIES =
-noinst_PROGRAMS =
-check_PROGRAMS =
-TESTS =
-BUILT_SOURCES =
-CLEANFILES =
+check_PROGRAMS += \
+	compiler/tests/eir_assemble
 
-EXTRA_DIST = \
-	meson.build
+compiler_tests_eir_assemble_SOURCES = \
+	compiler/tests/eir_assemble.cpp
 
-include Makefile.gc.am
-include Makefile.compiler.am
+TESTS += $(check_PROGRAMS)
 
-CLEANFILES += $(BUILT_SOURCES)
+EXTRA_DIST += \
+	compiler/meson.build \
+	compiler/tests

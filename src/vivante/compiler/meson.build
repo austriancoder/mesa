@@ -20,7 +20,18 @@
 # FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 # DEALINGS IN THE SOFTWARE.
 
-inc_vivante = include_directories('.')
+libvivante_compiler_files = files(
+  'eir.c',
+  'eir.h',
+)
 
-subdir('gc')
-subdir('compiler')
+libvivante_compiler = static_library(
+  ['vivante_compiler'],
+  libvivante_compiler_files,
+  include_directories : [inc_common, inc_vivante],
+  c_args : [c_vis_args, no_override_init_args],
+  dependencies : [dep_libdrm, dep_valgrind, idep_nir],
+  build_by_default : true,
+)
+
+subdir('tests')

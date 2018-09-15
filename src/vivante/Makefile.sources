@@ -6,3 +6,8 @@ VIVANTE_GC_FILES = \
 	gc/gc_pack.c \
 	gc/isa.xml.h \
 	$()
+
+VIVANTE_COMPILER_FILES = \
+	compiler/eir.c \
+	compiler/eir.h \
+	$()
