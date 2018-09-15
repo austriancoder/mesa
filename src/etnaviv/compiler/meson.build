@@ -20,7 +20,19 @@
 # FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 # DEALINGS IN THE SOFTWARE.
 
-inc_etnaviv = include_directories('.')
+libetnaviv_compiler_files = files(
+  'eir.c',
+  'eir.h',
+  'eir_uniform.c',
+)
 
-subdir('gc')
-subdir('compiler')
+libetnaviv_compiler = static_library(
+  ['etnaviv_compiler'],
+  libetnaviv_compiler_files,
+  include_directories : [inc_common, inc_etnaviv],
+  c_args : [c_vis_args, no_override_init_args],
+  dependencies : [dep_libdrm, dep_valgrind, idep_nir],
+  build_by_default : true,
+)
+
+subdir('tests')
