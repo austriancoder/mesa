@@ -20,7 +20,25 @@
 # FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 # DEALINGS IN THE SOFTWARE.
 
-inc_etnaviv = include_directories('.')
+test(
+  'eir_assemble',
+  executable(
+    'eir_assemble', 'eir_assemble.cpp',
+    cpp_args : [cpp_vis_args, cpp_msvc_compat_args],
+    link_with: [libetnaviv_gc, libetnaviv_compiler, libmesa_util],
+    include_directories: [inc_common, inc_etnaviv],
+    dependencies : [dep_clock, dep_thread, idep_gtest],
+  )
+)
 
-subdir('gc')
-subdir('compiler')
+test(
+  'eir_uniform',
+  executable(
+    'eir_uniform', 'eir_uniform.cpp',
+    cpp_args : [cpp_vis_args, cpp_msvc_compat_args],
+    link_with: [libetnaviv_gc, libetnaviv_compiler, libmesa_util],
+    include_directories: [inc_common, inc_etnaviv],
+    dependencies : [dep_clock, dep_thread, idep_gtest],
+  )
+)
+
