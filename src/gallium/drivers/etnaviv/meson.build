@@ -99,7 +99,7 @@ etnaviv_compiler = executable(
   'etnaviv_compiler',
   'etnaviv_compiler_cmdline.c',
   include_directories : [inc_include, inc_src, inc_gallium, inc_gallium_aux],
-  link_with : [libvivante_gc, libmesa_util, libgallium, libetnaviv],
+  link_with : [libvivante_gc, libvivante_compiler, libmesa_util, libgallium, libetnaviv],
   dependencies : [dep_libdrm_etnaviv],
   build_by_default : true,
 )
@@ -125,5 +125,5 @@ eir_compiler = executable(
 
 driver_etnaviv = declare_dependency(
   compile_args : '-DGALLIUM_ETNAVIV',
-  link_with : [libetnaviv, libetnavivdrm, libvivante_gc],
+  link_with : [libetnaviv, libetnavivdrm, libvivante_gc, libvivante_compiler],
 )

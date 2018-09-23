@@ -37,6 +37,7 @@
 #include "util/slab.h"
 #include "util/u_dynarray.h"
 
+struct eir_compiler;
 struct etna_bo;
 
 /* Enum with indices for each of the feature words */
@@ -78,6 +79,7 @@ struct etna_screen {
    uint32_t features[VIV_FEATURES_WORD_COUNT];
 
    struct etna_specs specs;
+   struct eir_compiler *compiler;
 
    uint32_t drm_version;
 };
