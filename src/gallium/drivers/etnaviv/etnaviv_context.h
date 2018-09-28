@@ -81,7 +81,7 @@ struct etna_vertexbuf_state {
 
 struct etna_shader_state {
    void *bind_vs, *bind_fs;
-   struct etna_shader_variant *vs, *fs;
+   void *vs, *fs;
 };
 
 enum etna_immediate_contents {

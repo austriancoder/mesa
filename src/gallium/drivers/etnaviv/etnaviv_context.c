@@ -25,6 +25,8 @@
  *    Christian Gmeiner <christian.gmeiner@gmail.com>
  */
 
+#include "vivante/compiler/eir_shader.h"
+
 #include "etnaviv_context.h"
 
 #include "etnaviv_blend.h"
@@ -116,9 +118,17 @@ etna_update_state_for_draw(struct etna_context *ctx, const struct pipe_draw_info
 static bool
 etna_get_vs(struct etna_context *ctx, struct etna_shader_key key)
 {
-   const struct etna_shader_variant *old = ctx->shader.vs;
+   const void *old = ctx->shader.vs;
 
-   ctx->shader.vs = etna_shader_variant(ctx->shader.bind_vs, key, &ctx->debug);
+   if (etna_mesa_debug & ETNA_DBG_NIR) {
+      struct eir_shader_key k = {
+         .frag_rb_swap = key.frag_rb_swap,
+      };
+
+      ctx->shader.vs = eir_shader_variant(ctx->shader.bind_vs, k, &ctx->debug);
+   } else {
+      ctx->shader.vs = etna_shader_variant(ctx->shader.bind_vs, key, &ctx->debug);
+   }
 
    if (!ctx->shader.vs)
       return false;
@@ -132,9 +142,17 @@ etna_get_vs(struct etna_context *ctx, struct etna_shader_key key)
 static bool
 etna_get_fs(struct etna_context *ctx, struct etna_shader_key key)
 {
-   const struct etna_shader_variant *old = ctx->shader.fs;
+   const void *old = ctx->shader.fs;
 
-   ctx->shader.fs = etna_shader_variant(ctx->shader.bind_fs, key, &ctx->debug);
+   if (etna_mesa_debug & ETNA_DBG_NIR) {
+      struct eir_shader_key k = {
+         .frag_rb_swap = key.frag_rb_swap,
+      };
+
+      ctx->shader.fs = eir_shader_variant(ctx->shader.bind_fs, k, &ctx->debug);
+   } else {
+      ctx->shader.fs = etna_shader_variant(ctx->shader.bind_fs, key, &ctx->debug);
+   }
 
    if (!ctx->shader.fs)
       return false;
