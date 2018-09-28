@@ -148,6 +148,27 @@ etna_get_fs(struct etna_context *ctx, struct etna_shader_key key)
    return true;
 }
 
+static bool
+etna_update_shader(struct etna_context *ctx)
+{
+   struct etna_shader_key key = {};
+   struct pipe_framebuffer_state *pfb = &ctx->framebuffer_s;
+   struct etna_surface *cbuf = etna_surface(pfb->cbufs[0]);
+
+   if (cbuf) {
+      struct etna_resource *res = etna_resource(cbuf->base.texture);
+
+      key.frag_rb_swap = !!translate_rs_format_rb_swap(res->base.format);
+   }
+
+   if (!etna_get_vs(ctx, key) || !etna_get_fs(ctx, key)) {
+      BUG("compiled shaders are not okay");
+      return false;
+   }
+
+   return true;
+}
+
 static void
 etna_draw_vbo(struct pipe_context *pctx, const struct pipe_draw_info *info)
 {
@@ -222,6 +243,9 @@ etna_draw_vbo(struct pipe_context *pctx, const struct pipe_draw_info *info)
       BUG("compiled shaders are not okay");
       return;
    }
+
+   if (!etna_update_shader(ctx))
+      return;
 
    /* Update any derived state */
    if (!etna_state_update(ctx))
