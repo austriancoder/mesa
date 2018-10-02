@@ -42,3 +42,13 @@ test(
   )
 )
 
+test(
+  'eir_legalize',
+  executable(
+    'eir_legalize', 'eir_legalize.cpp',
+    cpp_args : [cpp_vis_args, cpp_msvc_compat_args],
+    link_with: [libvivante_gc, libvivante_compiler, libmesa_util],
+    include_directories: [inc_common, inc_vivante],
+    dependencies : [dep_clock, dep_thread, idep_gtest],
+  )
+)

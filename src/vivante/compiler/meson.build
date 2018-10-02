@@ -23,6 +23,7 @@
 libvivante_compiler_files = files(
   'eir.c',
   'eir.h',
+  'eir_legalize.c',
 )
 
 libvivante_compiler = static_library(

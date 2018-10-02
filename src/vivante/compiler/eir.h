@@ -170,6 +170,9 @@ void
 eir_link_blocks(struct eir_block *predecessor, struct eir_block *successor);
 
 void
+eir_legalize(struct eir *ir);
+
+void
 eir_calculate_live_intervals(struct eir *ir);
 
 int

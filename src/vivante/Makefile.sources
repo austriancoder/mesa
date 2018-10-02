@@ -10,4 +10,5 @@ VIVANTE_GC_FILES = \
 VIVANTE_COMPILER_FILES = \
 	compiler/eir.c \
 	compiler/eir.h \
+	compiler/eir_legalize.c \
 	$()
