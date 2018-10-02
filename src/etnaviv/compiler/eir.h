@@ -283,6 +283,9 @@ eir_assign_output(struct eir *ir, unsigned idx, unsigned slot, unsigned ncomp)
 }
 
 void
+eir_legalize(struct eir *ir);
+
+void
 eir_calculate_live_intervals(struct eir *ir);
 
 int
