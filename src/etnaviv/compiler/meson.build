@@ -23,6 +23,7 @@
 libetnaviv_compiler_files = files(
   'eir.c',
   'eir.h',
+  'eir_legalize.c',
   'eir_uniform.c',
 )
 
