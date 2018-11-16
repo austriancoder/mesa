@@ -32,7 +32,8 @@ AM_CPPFLAGS = \
 libetnaviv_la_SOURCES = $(C_SOURCES)
 
 libetnaviv_la_LIBADD = \
-	$(top_builddir)/src/vivante/gc/libvivante_gc.la
+	$(top_builddir)/src/vivante/gc/libvivante_gc.la \
+	$(top_builddir)/src/vivante/compiler/libvivante_compiler.la
 
 noinst_PROGRAMS = etnaviv_compiler
 
