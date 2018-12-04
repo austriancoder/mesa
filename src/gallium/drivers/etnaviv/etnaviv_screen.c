@@ -38,6 +38,7 @@
 #include "etnaviv_resource.h"
 #include "etnaviv_translate.h"
 
+#include "util/hash_table.h"
 #include "util/os_time.h"
 #include "util/u_math.h"
 #include "util/u_memory.h"
@@ -81,6 +82,8 @@ static void
 etna_screen_destroy(struct pipe_screen *pscreen)
 {
    struct etna_screen *screen = etna_screen(pscreen);
+
+   _mesa_set_destroy(screen->used_resources, NULL);
 
    if (screen->perfmon)
       etna_perfmon_del(screen->perfmon);
@@ -1025,6 +1028,11 @@ etna_screen_create(struct etna_device *dev, struct etna_gpu *gpu,
 
    if (screen->drm_version >= ETNA_DRM_VERSION_PERFMON)
       etna_pm_query_setup(screen);
+
+   screen->used_resources = _mesa_set_create(NULL, _mesa_hash_pointer,
+                                             _mesa_key_pointer_equal);
+   if (!screen->used_resources)
+      goto fail;
 
    return pscreen;
 

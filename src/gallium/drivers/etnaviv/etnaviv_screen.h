@@ -34,6 +34,7 @@
 #include "os/os_thread.h"
 #include "pipe/p_screen.h"
 #include "renderonly/renderonly.h"
+#include "util/set.h"
 #include "util/slab.h"
 #include "util/u_dynarray.h"
 
@@ -80,6 +81,9 @@ struct etna_screen {
    struct etna_specs specs;
 
    uint32_t drm_version;
+
+   /* set of resources used by currently-unsubmitted renders */
+   struct set *used_resources;
 };
 
 static inline struct etna_screen *
