@@ -1036,7 +1036,7 @@ etna_screen_create(struct etna_device *dev, struct etna_gpu *gpu,
    pscreen->is_format_supported = etna_screen_is_format_supported;
    pscreen->query_dmabuf_modifiers = etna_screen_query_dmabuf_modifiers;
 
-   screen->compiler = eir_compiler_init();
+   screen->compiler = eir_compiler_create();
 
    etna_fence_screen_init(pscreen);
    etna_query_screen_init(pscreen);
