@@ -26,17 +26,11 @@
  */
 
 #include "compiler/nir/nir.h"
-#include "compiler/nir_types.h"
 #include "eir_compiler.h"
 #include "eir_nir.h"
 #include "eir_shader.h"
 #include "gc/gc_disasm.h"
 
-#include <stdio.h>
-
-#include "tgsi/tgsi_dump.h"
-#include "pipe/p_state.h"
-#include "util/u_debug.h"
 #include "util/u_memory.h"
 #include "util/ralloc.h"
 
@@ -70,30 +64,6 @@ assemble_variant(struct eir_shader_variant *v)
 	v->ir = NULL;
 }
 
-static void
-dump_shader_info(struct eir_shader_variant *v, struct pipe_debug_callback *debug)
-{
-   if (!unlikely(v->shader->compiler->debug & EIR_DBG_SHADERDB))
-      return;
-/*
-   pipe_debug_message(debug, SHADER_INFO, "\n"
-         "SHADER-DB: %s prog %d/%d: %u instructions %u temps\n"
-         "SHADER-DB: %s prog %d/%d: %u immediates %u consts\n"
-         "SHADER-DB: %s prog %d/%d: %u loops\n",
-         eir_shader_stage(v->shader),
-         v->shader->id, v->id,
-         v->code_size,
-         v->num_temps,
-         eir_shader_stage(v->shader),
-         v->shader->id, v->id,
-         v->uniforms.imm_count,
-         v->uniforms.const_count,
-         eir_shader_stage(v->shader),
-         v->shader->id, v->id,
-         v->num_loops);
-*/
-}
-
 static struct eir_shader_variant *
 create_variant(struct eir_shader *shader, struct eir_shader_key key)
 {
@@ -114,7 +84,7 @@ create_variant(struct eir_shader *shader, struct eir_shader_key key)
    }
 
    assemble_variant(v);
-   if (v->code) {
+   if (!v->code) {
       debug_error("assemble failed!");
       goto fail;
    }
@@ -136,7 +106,7 @@ fail:
  * This method is useful to calculate how much register space is needed to
  * store a particular type.
  */
-int
+static int
 eir_type_size_vec4(const struct glsl_type *type)
 {
    switch (glsl_get_base_type(type)) {
@@ -182,49 +152,21 @@ eir_type_size_vec4(const struct glsl_type *type)
 }
 
 struct eir_shader *
-eir_shader_create(struct eir_compiler *compiler,
-                  const struct pipe_shader_state *cso,
-                  gl_shader_stage type,
-                  struct pipe_debug_callback *debug)
+eir_shader_from_nir(struct eir_compiler *compiler, struct nir_shader *nir)
 {
    struct eir_shader *shader = CALLOC_STRUCT(eir_shader);
-   struct nir_shader *nir;
 
    assert(compiler);
 
    shader->mem_ctx = ralloc_context(NULL);
    shader->compiler = compiler;
    shader->id = shader->compiler->shader_count++;
-   shader->type = type;
+   shader->type = nir->info.stage;
 
-   if (cso->type == PIPE_SHADER_IR_NIR) {
-      /* we take ownership of the reference */
-      nir = cso->ir.nir;
-
-      NIR_PASS_V(nir, nir_lower_io, nir_var_all, eir_type_size_vec4,
-            (nir_lower_io_options)0);
-   } else {
-      debug_assert(cso->type == PIPE_SHADER_IR_TGSI);
-
-      if (compiler->debug & EIR_DBG_OPTMSGS) {
-         //DBG("dump tgsi: type=%d", shader->type);
-         tgsi_dump(cso->tokens, 0);
-      }
-
-      nir = eir_tgsi_to_nir(cso->tokens);
-   }
+   NIR_PASS_V(nir, nir_lower_io, nir_var_all, eir_type_size_vec4,
+         (nir_lower_io_options)0);
 
    shader->nir = eir_optimize_nir(nir);
-
-   if (compiler->debug & EIR_DBG_SHADERDB) {
-      /* if shader-db run, create a standard variant immediately
-       * (as otherwise nothing will trigger the shader to be
-       * actually compiled)
-       */
-      static struct eir_shader_key key;
-      memset(&key, 0, sizeof(key));
-      eir_shader_variant(shader, key, debug);
-   }
 
    return shader;
 }
@@ -249,10 +191,11 @@ eir_shader_destroy(struct eir_shader *shader)
 }
 
 struct eir_shader_variant *
-eir_shader_variant(struct eir_shader *shader, struct eir_shader_key key,
-                   struct pipe_debug_callback *debug)
+eir_shader_get_variant(struct eir_shader *shader, struct eir_shader_key key, bool *created)
 {
    struct eir_shader_variant *v;
+
+   *created = false;
 
    for (v = shader->variants; v; v = v->next)
       if (eir_shader_key_equal(&key, &v->key))
@@ -263,7 +206,7 @@ eir_shader_variant(struct eir_shader *shader, struct eir_shader_key key,
    if (v) {
       v->next = shader->variants;
       shader->variants = v;
-      dump_shader_info(v, debug);
+      *created = true;
    }
 
    return v;

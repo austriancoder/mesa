@@ -42,6 +42,8 @@ files_etnaviv = files(
   'etnaviv_debug.h',
   'etnaviv_disasm.c',
   'etnaviv_disasm.h',
+  'etnaviv_eir.c',
+  'etnaviv_eir.h',
   'etnaviv_emit.c',
   'etnaviv_emit.h',
   'etnaviv_fence.c',
@@ -92,7 +94,7 @@ libetnaviv = static_library(
   files_etnaviv,
   c_args : [c_vis_args],
   include_directories : [inc_include, inc_src, inc_gallium, inc_gallium_aux],
-  dependencies : dep_libdrm_etnaviv,
+  dependencies : [ dep_libdrm_etnaviv, idep_nir_headers ]
 )
 
 etnaviv_compiler = executable(
@@ -113,6 +115,7 @@ eir_compiler = executable(
     dep_thread,
   ],
   link_with : [
+    libetnaviv,
     libvivante_gc,
     libvivante_compiler,
     libgallium,

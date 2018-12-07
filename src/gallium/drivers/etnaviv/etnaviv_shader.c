@@ -24,7 +24,7 @@
  *    Wladimir J. van der Laan <laanwj@gmail.com>
  */
 
-#include "vivante/compiler/eir_shader.h"
+#include "etnaviv_eir.h"
 
 #include "etnaviv_shader.h"
 

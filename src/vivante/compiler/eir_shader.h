@@ -29,10 +29,8 @@
 #define H_EIR_SHADER
 
 #include "compiler/glsl_types.h"
-#include "compiler/shader_enums.h"
 #include "eir.h"
 #include <stdbool.h>
-#include "util/macros.h"
 
 struct nir_shader;
 
@@ -60,7 +58,7 @@ struct eir_shader_variant
 
    struct eir_shader *shader;
    struct eir_shader_key key;
-   struct eir_info info;   // TODO: really needed? would like to kill eir.h include
+   struct eir_info info;
    struct eir *ir;
 
    uint32_t *code;
@@ -97,26 +95,16 @@ struct eir_shader
    struct eir_shader_variant *variants;
 };
 
-struct pipe_debug_callback;
-struct pipe_shader_state;
-
 struct eir_shader *
-eir_shader_create(struct eir_compiler *compiler,
-                  const struct pipe_shader_state *cso,
-                  gl_shader_stage type,
-                  struct pipe_debug_callback *debug);
+eir_shader_from_nir(struct eir_compiler *compiler, struct nir_shader *nir);
 
 void
 eir_shader_destroy(struct eir_shader *shader);
 
 struct eir_shader_variant *
-eir_shader_variant(struct eir_shader *shader, struct eir_shader_key key,
-                   struct pipe_debug_callback *debug);
+eir_shader_get_variant(struct eir_shader *shader, struct eir_shader_key key, bool *created);
 
 void
 eir_dump_shader(struct eir_shader_variant *variant);
-
-int
-eir_type_size_vec4(const struct glsl_type *type);
 
 #endif // H_EIR_SHADER

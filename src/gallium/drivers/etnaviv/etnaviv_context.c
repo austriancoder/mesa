@@ -25,7 +25,7 @@
  *    Christian Gmeiner <christian.gmeiner@gmail.com>
  */
 
-#include "vivante/compiler/eir_shader.h"
+#include "etnaviv_eir.h"
 
 #include "etnaviv_context.h"
 

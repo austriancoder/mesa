@@ -110,9 +110,6 @@ int main(int argc, char **argv)
 {
    int ret, n = 1;
    const char *filename;
-   //struct eir_compiler_options options;
-   struct eir_shader s;
-   struct eir_shader_variant v = {};
    struct eir_shader_key key = {};
    void *ptr;
    size_t size;
@@ -159,6 +156,14 @@ int main(int argc, char **argv)
          errx(1, "could not parse `%s'", filename);
 
       nir = eir_tgsi_to_nir(toks);
+
+      /*
+      * tgsi_to_nir(..) creates some glsl_type::*_types hash tables.
+      * _mesa_glsl_release_types() frees all the allocated memory and
+      * valgrind is happy.
+      */
+      _mesa_glsl_release_types();
+
    } else if (strcmp(ext, ".frag") == 0) {
       nir = load_glsl(filename, MESA_SHADER_FRAGMENT);
    } else if (strcmp(ext, ".vert") == 0) {
@@ -173,36 +178,18 @@ int main(int argc, char **argv)
       nir_print_shader(nir, stdout);
    }
 
-   NIR_PASS_V(nir, nir_lower_io, nir_var_all, eir_type_size_vec4, (nir_lower_io_options)0);
-
-   s.mem_ctx = ralloc_context(NULL);
-   s.compiler = eir_compiler_init();
-   s.nir = eir_optimize_nir(nir);
-   s.type = nir->info.stage;
-
-   v.key = key;
-   v.shader = &s;
+   struct eir_compiler *c = eir_compiler_init();
 
    if (verbose)
-      s.compiler->debug |= (EIR_DBG_OPTMSGS | EIR_DBG_MSGS);
+      c->debug |= (EIR_DBG_OPTMSGS | EIR_DBG_MSGS);
 
-   ret = eir_compile_shader_nir(s.compiler, &v);
-   if (ret) {
-      fprintf(stderr, "compiler failed!\n");
-      return ret;
-   }
+   struct eir_shader *s = eir_shader_from_nir(c, nir);
+   bool created = false;
+   struct eir_shader_variant *v = eir_shader_get_variant(s, key, &created);
 
-   v.code = eir_assemble(v.ir, &v.info);
-
-   eir_dump_shader(&v);
-
-   // we can not use eir_shader_destroy(..) here so do all the
-   // memory freeing this way.
-   ralloc_free(s.nir);
-   ralloc_free(s.mem_ctx);
-   eir_compiler_free(s.compiler);
-   eir_destroy(v.ir);
-   free(v.code);
+   eir_dump_shader(v);
+   eir_shader_destroy(s);
+   eir_compiler_free(c);
 
    return ret;
 }
