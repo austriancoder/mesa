@@ -52,7 +52,6 @@ struct eir_context
 
 #define DBG(compiler, fmt, ...)                                   \
    do {                                                           \
-      if (compiler->debug & EIR_DBG_MSGS)                         \
          debug_printf("%s:%d: " fmt "\n", __FUNCTION__, __LINE__, \
                       ##__VA_ARGS__);                             \
    } while (0)
@@ -766,19 +765,19 @@ eir_compile_shader_nir(struct eir_compiler *compiler,
       goto out;
    }
 
-   if (compiler->debug & EIR_DBG_OPTMSGS) {
+   if (eir_compiler_debug & EIR_DBG_OPTMSGS) {
       printf("AFTER emitting:\n");
       eir_print(ctx->ir);
    }
 
    eir_legalize(ctx->ir);
-   if (compiler->debug & EIR_DBG_OPTMSGS) {
+   if (eir_compiler_debug & EIR_DBG_OPTMSGS) {
       printf("AFTER legalization:\n");
       eir_print(ctx->ir);
    }
 
    eir_calculate_live_intervals(ctx->ir);
-   if (compiler->debug & EIR_DBG_OPTMSGS) {
+   if (eir_compiler_debug & EIR_DBG_OPTMSGS) {
       printf("AFTER live-ranges:\n");
       eir_print(ctx->ir);
    }
@@ -790,7 +789,7 @@ eir_compile_shader_nir(struct eir_compiler *compiler,
       goto out;
    }
 
-   if (compiler->debug & EIR_DBG_OPTMSGS) {
+   if (eir_compiler_debug & EIR_DBG_OPTMSGS) {
       printf("AFTER RA:\n");
       eir_print(ctx->ir);
    }

@@ -25,11 +25,13 @@
  *    Christian Gmeiner <christian.gmeiner@gmail.com>
  */
 
+#include "etnaviv_debug.h"
 #include "etnaviv_eir.h"
-
 #include "nir/tgsi_to_nir.h"
-
+#include "tgsi/tgsi_dump.h"
+#include "util/u_debug.h"
 #include "util/u_memory.h"
+#include "vivante/compiler/eir_compiler.h"
 #include "vivante/compiler/eir_nir.h"
 #include "vivante/compiler/eir_shader.h"
 #include "pipe/p_state.h"
@@ -37,22 +39,22 @@
 static void
 dump_shader_info(struct eir_shader_variant *v, struct pipe_debug_callback *debug)
 {
-   //if (!unlikely(v->shader->compiler->debug & EIR_DBG_SHADERDB))
+   if (!unlikely(etna_mesa_debug & ETNA_DBG_SHADERDB))
       return;
 /*
    pipe_debug_message(debug, SHADER_INFO, "\n"
          "SHADER-DB: %s prog %d/%d: %u instructions %u temps\n"
          "SHADER-DB: %s prog %d/%d: %u immediates %u consts\n"
          "SHADER-DB: %s prog %d/%d: %u loops\n",
-         eir_shader_stage(v->shader),
+         gl_shader_stage_name(v->shader->type),
          v->shader->id, v->id,
          v->code_size,
          v->num_temps,
-         eir_shader_stage(v->shader),
+         gl_shader_stage_name(v->shader->type),
          v->shader->id, v->id,
          v->uniforms.imm_count,
          v->uniforms.const_count,
-         eir_shader_stage(v->shader),
+         gl_shader_stage_name(v->shader->type),
          v->shader->id, v->id,
          v->num_loops);
 */
@@ -73,18 +75,16 @@ eir_shader_create(struct eir_compiler *compiler,
       nir = cso->ir.nir;
    } else {
       debug_assert(cso->type == PIPE_SHADER_IR_TGSI);
-/*
-      if (compiler->debug & EIR_DBG_OPTMSGS) {
-         //DBG("dump tgsi: type=%d", shader->type);
+
+      if (eir_compiler_debug & EIR_DBG_DISASM)
          tgsi_dump(cso->tokens, 0);
-      }
-*/
+
       nir = eir_tgsi_to_nir(cso->tokens);
    }
 
    struct eir_shader *shader = eir_shader_from_nir(compiler, nir);
 
-   /*if (compiler->debug & EIR_DBG_SHADERDB)*/ {
+   if (etna_mesa_debug & ETNA_DBG_SHADERDB) {
       /* if shader-db run, create a standard variant immediately
        * (as otherwise nothing will trigger the shader to be
        * actually compiled)
