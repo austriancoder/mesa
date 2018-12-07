@@ -178,7 +178,7 @@ int main(int argc, char **argv)
       nir_print_shader(nir, stdout);
    }
 
-   struct eir_compiler *c = eir_compiler_init();
+   struct eir_compiler *c = eir_compiler_create();
 
    if (verbose)
       c->debug |= (EIR_DBG_OPTMSGS | EIR_DBG_MSGS);
