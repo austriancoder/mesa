@@ -181,7 +181,7 @@ int main(int argc, char **argv)
    struct eir_compiler *c = eir_compiler_create();
 
    if (verbose)
-      c->debug |= (EIR_DBG_OPTMSGS | EIR_DBG_MSGS);
+      eir_compiler_debug |= EIR_DBG_OPTMSGS;
 
    struct eir_shader *s = eir_shader_from_nir(c, nir);
    bool created = false;
