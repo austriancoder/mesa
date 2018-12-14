@@ -10,10 +10,14 @@ VIVANTE_GC_FILES = \
 VIVANTE_COMPILER_FILES = \
 	compiler/eir.c \
 	compiler/eir.h \
+	compiler/eir_compiler.c \
+	compiler/eir_compiler.h \
 	compiler/eir_legalize.c \
 	compiler/eir_live_variables.c \
 	compiler/eir_nir.c \
 	compiler/eir_nir.h \
 	compiler/eir_print.c \
 	compiler/eir_register_allocate.c \
+	compiler/eir_shader.c \
+	compiler/eir_shader.h \
 	$()

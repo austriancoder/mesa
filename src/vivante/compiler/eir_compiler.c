@@ -25,38 +25,37 @@
  *    Christian Gmeiner <christian.gmeiner@gmail.com>
  */
 
-#ifndef H_EIR_COMPILER
-#define H_EIR_COMPILER
+#include "eir.h"
+#include "eir_compiler.h"
+#include "util/ralloc.h"
+#include "util/u_debug.h"
 
-#include <stdint.h>
-
-struct eir_ra_reg_set;
-struct eir_shader_variant;
-
-enum eir_compiler_debug {
-   EIR_DBG_DISASM   = (1 << 0),
-   EIR_DBG_OPTMSGS  = (1 << 1),
+static const struct debug_named_value shader_debug_options[] = {
+   {"disasm",  EIR_DBG_DISASM, "Dump NIR and etnaviv shader disassembly"},
+   {"optmsgs", EIR_DBG_OPTMSGS,"Enable optimizer debug messages"},
+   DEBUG_NAMED_VALUE_END
 };
 
-extern enum eir_compiler_debug eir_compiler_debug;
+DEBUG_GET_ONCE_FLAGS_OPTION(eir_compiler_debug, "EIR_COMPILER_DEBUG", shader_debug_options, 0)
 
-/**
- * Compiler state saved across compiler invocations, for any expensive global
- * setup.
- */
-struct eir_compiler {
-   struct eir_ra_reg_set *set;
-   uint32_t shader_count;
-};
+enum eir_compiler_debug eir_compiler_debug = 0;
 
 struct eir_compiler *
-eir_compiler_create(void);
+eir_compiler_create(void)
+{
+   struct eir_compiler *compiler = rzalloc(NULL, struct eir_compiler);
+
+   if (!compiler)
+      return NULL;
+
+   eir_compiler_debug = debug_get_option_eir_compiler_debug();
+   compiler->set = eir_ra_alloc_reg_set(compiler);
+
+   return compiler;
+}
 
 void
-eir_compiler_free(const struct eir_compiler *compiler);
-
-int
-eir_compile_shader_nir(struct eir_compiler *compiler,
-                       struct eir_shader_variant *v);
-
-#endif // H_EIR_COMPILER
+eir_compiler_free(const struct eir_compiler *compiler)
+{
+   ralloc_free((void *)compiler);
+}
