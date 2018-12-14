@@ -195,6 +195,9 @@ eir_ra_alloc_reg_set(void *memctx);
 bool
 eir_register_allocate(struct eir *ir, struct eir_compiler *compiler);
 
+void
+eir_print(struct eir *ir);
+
 uint32_t *
 eir_assemble(struct eir *ir, struct eir_info *info);
 

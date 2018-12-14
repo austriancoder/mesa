@@ -14,5 +14,6 @@ VIVANTE_COMPILER_FILES = \
 	compiler/eir_live_variables.c \
 	compiler/eir_nir.c \
 	compiler/eir_nir.h \
+	compiler/eir_print.c \
 	compiler/eir_register_allocate.c \
 	$()
