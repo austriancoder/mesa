@@ -109,6 +109,26 @@ etnaviv_compiler = executable(
   install : with_tools.contains('etnaviv'),
 )
 
+eir_compiler = executable(
+  'eir_compiler',
+  'eir_cmdline.c',
+  include_directories : [inc_mesa, inc_mapi, inc_src, inc_include, inc_gallium, inc_gallium_aux, inc_etnaviv],
+  dependencies : [
+    idep_nir,
+    dep_thread,
+  ],
+  link_with : [
+    libetnaviv,
+    libetnaviv_gc,
+    libetnaviv_compiler,
+    libgallium,
+    libglsl_standalone,
+    libmesa_util,
+  ],
+  build_by_default : with_tools.contains('etnaviv'),
+  install : with_tools.contains('etnaviv'),
+)
+
 driver_etnaviv = declare_dependency(
   compile_args : '-DGALLIUM_ETNAVIV',
   link_with : [libetnaviv, libetnavivdrm, libetnaviv_gc, libetnaviv_compiler],
