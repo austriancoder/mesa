@@ -99,9 +99,28 @@ etnaviv_compiler = executable(
   'etnaviv_compiler',
   'etnaviv_compiler_cmdline.c',
   include_directories : [inc_include, inc_src, inc_gallium, inc_gallium_aux],
-  link_with : [libmesa_util, libgallium, libetnaviv],
+  link_with : [libvivante_gc, libmesa_util, libgallium, libetnaviv],
   dependencies : [dep_libdrm_etnaviv],
-  build_by_default : false,
+  build_by_default : true,
+)
+
+eir_compiler = executable(
+  'eir_compiler',
+  'eir_cmdline.c',
+  include_directories : [inc_src, inc_include, inc_gallium, inc_gallium_aux, inc_vivante],
+  dependencies : [
+    idep_nir,
+    dep_thread,
+  ],
+  link_with : [
+    libvivante_gc,
+    libvivante_compiler,
+    libgallium,
+    libglsl_standalone,
+    libmesa_util,
+  ],
+  build_by_default : with_tools.contains('etnaviv'),
+  install : with_tools.contains('etnaviv'),
 )
 
 driver_etnaviv = declare_dependency(
