@@ -31,7 +31,7 @@
 #include "eir_compiler.h"
 #include "util/ralloc.h"
 #include "util/register_allocate.h"
-
+#include <stdio.h>
 static const int MAX_TEMP = 64;
 
 /* Swizzles and write masks can be used to layer virtual non-interfering
@@ -293,21 +293,25 @@ eir_register_allocate(struct eir *ir, gl_shader_stage type, struct eir_compiler 
       i++;
    }
 
-   /* TODO: handle scalar opcodes */
-#if 0
-   eir_for_each_block(block, ir) {
-      eir_for_each_inst(inst, block) {
-         if (gc_op_is_scalar(inst->gc.opcode)) {
-            ra_set_node_reg(g, )
-         }
-      }
-   }
-#endif
-
    for (unsigned i = 0; i < num; i++)
       for (unsigned j = 0; j < i; j++)
 	      if (interferes(ir, i, j))
 	         ra_add_node_interference(g, i, j);
+
+   /* handle scalar opcodes */
+   eir_for_each_block(block, ir) {
+      eir_for_each_inst(inst, block) {
+         if (gc_op_is_scalar(inst->gc.opcode)) {
+            assert(gc_op_num_src(inst->gc.opcode) == 1);
+            const int reg = EIR_REG_TYPE_VIRT_SCALAR_X * inst->src[0].index;
+
+            ra_set_node_class(g, inst->src[0].index, EIR_REG_CLASS_VIRT_SCALAR);
+
+            //ra_set_node_reg(g, inst->src[0].index, reg);
+            printf("\n SCALAR reg: %d -> virt reg: %d base: %d type: %d\n", inst->src[0].index, reg, etna_reg_get_base(reg), eir_reg_get_type(reg));
+         }
+      }
+   }
 
    if (type == MESA_SHADER_FRAGMENT) {
       for (unsigned i = 0; i < num; i++) {
