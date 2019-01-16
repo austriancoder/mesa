@@ -561,8 +561,10 @@ etna_resource_from_handle(struct pipe_screen *pscreen,
     */
    if (rsc->layout == ETNA_LAYOUT_LINEAR &&
        etna_resource_sampler_only(prsc) &&
-       VIV_FEATURE(screen, chipMinorFeatures1, LINEAR_TEXTURE_SUPPORT))
+       VIV_FEATURE(screen, chipMinorFeatures1, LINEAR_TEXTURE_SUPPORT)) {
+      printf("linear used for sampler and gpu can handle it!\n");
       return pres;
+   }
 
    if (rsc->layout == ETNA_LAYOUT_LINEAR) {
       /*
