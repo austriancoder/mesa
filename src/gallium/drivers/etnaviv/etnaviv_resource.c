@@ -554,6 +554,16 @@ etna_resource_from_handle(struct pipe_screen *pscreen,
       goto fail;
    }
 
+   /*
+    * If sampler can handle linear and resource is only used for sampling
+    * purposes we do not need to create a compatible base texture. This
+    * saves an extra resolve step.
+    */
+   if (rsc->layout == ETNA_LAYOUT_LINEAR &&
+       etna_resource_sampler_only(prsc) &&
+       VIV_FEATURE(screen, chipMinorFeatures1, LINEAR_TEXTURE_SUPPORT))
+      return pres;
+
    if (rsc->layout == ETNA_LAYOUT_LINEAR) {
       /*
        * Both sampler and pixel pipes can't handle linear, create a compatible
