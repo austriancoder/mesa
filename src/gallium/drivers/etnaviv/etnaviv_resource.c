@@ -318,9 +318,9 @@ etna_resource_create(struct pipe_screen *pscreen,
 {
    struct etna_screen *screen = etna_screen(pscreen);
 
-   /* Figure out what tiling and address mode to use -- for now, assume that
-    * texture cannot be linear. there is a capability LINEAR_TEXTURE_SUPPORT
-    * (supported on gc880 and gc2000 at least), but not sure how it works.
+   /* Figure out what tiling and address mode to use.
+    * Textures are TILED or LINEAR. If LINEAR_TEXTURE_SUPPORT capability is
+    * available LINEAR gets prefered.
     * Buffers always have LINEAR layout.
     */
    unsigned layout = ETNA_LAYOUT_LINEAR;
@@ -334,6 +334,10 @@ etna_resource_create(struct pipe_screen *pscreen,
 
       if (util_format_is_compressed(templat->format))
          layout = ETNA_LAYOUT_LINEAR;
+      else if (VIV_FEATURE(screen, chipMinorFeatures1, LINEAR_TEXTURE_SUPPORT)) {
+         layout = ETNA_LAYOUT_LINEAR;
+         mode = ETNA_ADDRESSING_MODE_LINEAR;
+      }
    } else if (templat->target != PIPE_BUFFER) {
       bool want_multitiled = false;
       bool want_supertiled = screen->specs.can_supertile;
