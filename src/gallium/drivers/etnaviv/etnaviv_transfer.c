@@ -62,15 +62,38 @@ static void etna_patch_data(void *buffer, struct pipe_transfer *ptrans)
 {
    struct pipe_resource *prsc = ptrans->resource;
    struct etna_resource *rsc = etna_resource(prsc);
+   struct etna_resource_level *level = &rsc->levels[ptrans->level];
 
    if (!etna_etc2_needs_patching(prsc))
       return;
 
-   if (rsc->patched)
+   if (level->patch_state == ETNA_RESOURCE_PATCH_APPLIED)
       return;
 
-   etna_etc2_patch(buffer, ptrans->stride, ptrans->box.width, ptrans->box.height, prsc->format);
-   rsc->patched = 1;
+   /* do have a offset of blocks to patch? */
+   if (level->patch_state == ETAN_RESOURCE_PATCH_NOT_VALID)
+      etna_etc2_calculate_blocks(buffer, ptrans->stride,
+                                         ptrans->box.width, ptrans->box.height,
+                                         prsc->format, &level->patch_offsets);
+
+
+   etna_etc2_patch(buffer, &level->patch_offsets);
+
+   level->patch_state = ETNA_RESOURCE_PATCH_APPLIED;
+}
+
+static void etna_unpatch_data(void *buffer, struct pipe_transfer *ptrans)
+{
+   struct pipe_resource *prsc = ptrans->resource;
+   struct etna_resource *rsc = etna_resource(prsc);
+   struct etna_resource_level *level = &rsc->levels[ptrans->level];
+
+   if (level->patch_state != ETNA_RESOURCE_PATCH_APPLIED)
+      return;
+
+   etna_etc2_patch(buffer, &level->patch_offsets);
+
+   level->patch_state = ETNA_RESOURCE_PATCH_REVERTED;
 }
 
 static void
@@ -357,6 +380,9 @@ etna_transfer_map(struct pipe_context *pctx, struct pipe_resource *prsc,
       trans->mapped = mapped + res_level->offset +
                        etna_compute_offset(prsc->format, box, res_level->stride,
                                            res_level->layer_stride);
+
+      if (usage & PIPE_TRANSFER_READ)
+         etna_unpatch_data(trans->mapped, ptrans);
 
       return trans->mapped;
    } else {

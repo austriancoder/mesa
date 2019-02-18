@@ -31,8 +31,15 @@
 #include "etnaviv_tiling.h"
 #include "pipe/p_state.h"
 #include "util/list.h"
+#include "util/u_dynarray.h"
 
 struct pipe_screen;
+
+enum etna_resource_patch_state {
+   ETAN_RESOURCE_PATCH_NOT_VALID = 0,
+   ETNA_RESOURCE_PATCH_APPLIED,
+   ETNA_RESOURCE_PATCH_REVERTED,
+};
 
 struct etna_resource_level {
    unsigned width, padded_width; /* in pixels */
@@ -47,6 +54,10 @@ struct etna_resource_level {
    uint32_t ts_size;
    uint32_t clear_value; /* clear value of resource level (mainly for TS) */
    bool ts_valid;
+
+   /* keep track if we have done some per block patching */
+   enum etna_resource_patch_state patch_state;
+   struct util_dynarray patch_offsets;
 };
 
 enum etna_resource_addressing_mode {
@@ -93,8 +104,6 @@ struct etna_resource {
     * in the used_resources list. */
    struct list_head list;
    struct etna_context *pending_ctx;
-
-   int patched;
 };
 
 /* returns TRUE if a is newer than b */

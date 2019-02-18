@@ -46,10 +46,10 @@ swap_colors(uint8_t *buffer)
 
    /* fixup R and dR used for t-mode detection */
    static const uint8_t fixup[16] = {
-      0x4, 0x4,  0x4,  0x4,
-      0x4, 0x4,  0x4,  0xE0,
-      0x4, 0x4,  0xE0, 0xE0,
-      0x4, 0xE0, 0xE0, 0xE0
+      0x04, 0x04, 0x04, 0x04,
+      0x04, 0x04, 0x04, 0xe0,
+      0x04, 0x04, 0xe0, 0xe0,
+      0x04, 0xe0, 0xe0, 0xe0
    };
 
    /* swap colors */
@@ -77,8 +77,16 @@ needs_patching(uint8_t *buffer, bool punchthrough_alpha)
 }
 
 void
-etna_etc2_patch(uint8_t *buffer, unsigned stride, unsigned width,
-                unsigned height, enum pipe_format format)
+etna_etc2_patch(uint8_t *buffer, struct util_dynarray *offsets)
+{
+   util_dynarray_foreach(offsets, unsigned, offset)
+      swap_colors(buffer + *offset);
+}
+
+void
+etna_etc2_calculate_blocks(uint8_t *buffer, unsigned stride, unsigned width,
+                unsigned height, enum pipe_format format,
+                struct util_dynarray *offsets)
 {
    const unsigned bw = util_format_get_blockwidth(format);
    const unsigned bh = util_format_get_blockheight(format);
@@ -100,7 +108,7 @@ etna_etc2_patch(uint8_t *buffer, unsigned stride, unsigned width,
 
       for (unsigned x = 0; x < width; x+= bw) {
          if (needs_patching(src + offset, punchthrough_alpha))
-            swap_colors(src + offset);
+            util_dynarray_append(offsets, unsigned, src + offset);
 
          src += bs;
       }

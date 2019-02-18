@@ -32,12 +32,17 @@
 #include <stdint.h>
 
 #include "pipe/p_format.h"
+#include "util/u_dynarray.h"
 
 struct pipe_resource;
 
 void
-etna_etc2_patch(uint8_t *buffer, unsigned stride, unsigned width,
-                unsigned height, enum pipe_format format);
+etna_etc2_calculate_blocks(uint8_t *buffer, unsigned stride, unsigned width,
+                unsigned height, enum pipe_format format,
+                struct util_dynarray *offsets);
+
+void
+etna_etc2_patch(uint8_t *buffer, struct util_dynarray *offsets);
 
 bool
 etna_etc2_needs_patching(const struct pipe_resource *prsc);
