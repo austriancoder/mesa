@@ -41,7 +41,6 @@
 #include "util/u_surface.h"
 #include "util/u_transfer.h"
 
-#include "hw/common.xml.h"
 #include "hw/common_3d.xml.h"
 
 #include "drm-uapi/drm_fourcc.h"
@@ -63,15 +62,15 @@ static void etna_patch_data(void *buffer, struct pipe_transfer *ptrans)
 {
    struct pipe_resource *prsc = ptrans->resource;
    struct etna_resource *rsc = etna_resource(prsc);
-   struct etna_screen *screen = etna_screen(prsc->screen);
 
-   if (!util_format_is_etc(prsc->format))
+   if (!etna_etc2_needs_patching(prsc))
       return;
 
-   if (VIV_FEATURE(screen, chipMinorFeatures2, HALTI1))
+   if (rsc->patched)
       return;
 
-   etna_etc2_swap_colors(buffer, rsc, ptrans->level);
+   etna_etc2_patch(buffer, ptrans->stride, ptrans->box.width, ptrans->box.height, prsc->format);
+   rsc->patched = 1;
 }
 
 static void
@@ -123,13 +122,13 @@ etna_transfer_unmap(struct pipe_context *pctx, struct pipe_transfer *ptrans)
                           ptrans->box.height, ptrans->box.depth,
                           trans->staging, ptrans->stride,
                           ptrans->layer_stride, 0, 0, 0 /* src x,y,z */);
-
-            etna_patch_data(mapped, ptrans);
          } else {
             BUG("unsupported tiling %i", rsc->layout);
          }
 
          FREE(trans->staging);
+      } else if (trans->mapped) {
+         etna_patch_data(trans->mapped, ptrans);
       }
 
       rsc->seqno++;
@@ -355,10 +354,11 @@ etna_transfer_map(struct pipe_context *pctx, struct pipe_resource *prsc,
    if (rsc->layout == ETNA_LAYOUT_LINEAR) {
       ptrans->stride = res_level->stride;
       ptrans->layer_stride = res_level->layer_stride;
+      trans->mapped = mapped + res_level->offset +
+                       etna_compute_offset(prsc->format, box, res_level->stride,
+                                           res_level->layer_stride);
 
-      return mapped + res_level->offset +
-             etna_compute_offset(prsc->format, box, res_level->stride,
-                                 res_level->layer_stride);
+      return trans->mapped;
    } else {
       unsigned divSizeX = util_format_get_blockwidth(format);
       unsigned divSizeY = util_format_get_blockheight(format);
@@ -386,8 +386,6 @@ etna_transfer_map(struct pipe_context *pctx, struct pipe_resource *prsc,
                                 ptrans->box.width, ptrans->box.height, ptrans->stride,
                                 util_format_get_blocksize(rsc->base.format));
          } else if (rsc->layout == ETNA_LAYOUT_LINEAR) {
-            etna_patch_data(mapped, ptrans);
-
             util_copy_box(trans->staging, rsc->base.format, ptrans->stride,
                           ptrans->layer_stride, 0, 0, 0, /* dst x,y,z */
                           ptrans->box.width, ptrans->box.height,

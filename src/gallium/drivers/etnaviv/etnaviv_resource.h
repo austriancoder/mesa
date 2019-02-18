@@ -93,6 +93,8 @@ struct etna_resource {
     * in the used_resources list. */
    struct list_head list;
    struct etna_context *pending_ctx;
+
+   int patched;
 };
 
 /* returns TRUE if a is newer than b */
