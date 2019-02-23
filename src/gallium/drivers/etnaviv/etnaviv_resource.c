@@ -560,6 +560,15 @@ etna_resource_from_handle(struct pipe_screen *pscreen,
                                                                   level->padded_height);
    level->size = level->layer_stride;
 
+   rsc->pending_ctx = _mesa_set_create(NULL, _mesa_hash_pointer,
+                                       _mesa_key_pointer_equal);
+   if (!rsc->pending_ctx)
+      goto fail;
+
+   /* The constraint checks below are invalid for YUV formats. */
+   if (util_format_is_yuv(tmpl->format))
+      return prsc;
+
    /* The DDX must give us a BO which conforms to our padding size.
     * The stride of the BO must be greater or equal to our padded
     * stride. The size of the BO must accomodate the padded height. */
@@ -575,11 +584,6 @@ etna_resource_from_handle(struct pipe_screen *pscreen,
           util_format_name(tmpl->format));
       goto fail;
    }
-
-   rsc->pending_ctx = _mesa_set_create(NULL, _mesa_hash_pointer,
-                                       _mesa_key_pointer_equal);
-   if (!rsc->pending_ctx)
-      goto fail;
 
    if (rsc->layout == ETNA_LAYOUT_LINEAR) {
       /*
