@@ -53,6 +53,31 @@ static bool etna_icache_upload_shader(struct etna_context *ctx, struct etna_shad
    return true;
 }
 
+static uint32_t
+etna_calculate_load_balance(const struct etna_specs *specs, unsigned num_regs)
+{
+   /* fill in "mystery meat" load balancing value. This value determines how
+    * work is scheduled between VS and PS
+    * in the unified shader architecture. More precisely, it is determined from
+    * the number of VS outputs, as well as chip-specific
+    * vertex output buffer size, vertex cache size, and the number of shader
+    * cores.
+    */
+   unsigned half_out = (num_regs + 1) / 2;
+   assert(half_out);
+
+   uint32_t b = ((20480 / (specs->vertex_output_buffer_size -
+                           2 * half_out * specs->vertex_cache_size)) +
+                 9) /
+                10;
+   uint32_t a = (b + 256 / (specs->shader_core_count * half_out)) / 2;
+
+   return VIVS_VS_LOAD_BALANCING_A(MIN2(a, 255)) |
+          VIVS_VS_LOAD_BALANCING_B(MIN2(b, 255)) |
+          VIVS_VS_LOAD_BALANCING_C(0x3f) |
+          VIVS_VS_LOAD_BALANCING_D(0x0f);
+}
+
 /* Link vs and fs together: fill in shader_state from vs and fs
  * as this function is called every time a new fs or vs is bound, the goal is to
  * do little processing as possible here, and to precompute as much as possible in
@@ -139,9 +164,12 @@ etna_link_shaders(struct etna_context *ctx, struct compiled_shader_state *cs,
       cs->VS_OUTPUT_COUNT_PSIZE = cs->VS_OUTPUT_COUNT;
    }
 
-   cs->VS_LOAD_BALANCING = vs->vs_load_balancing;
-   cs->VS_START_PC = 0;
+   unsigned num_regs = vs->outfile.num_reg;
+   num_regs += COND(vs->vs_pos_out_reg != -1, 1);
+   num_regs += COND(vs->vs_pointsize_out_reg != -1, 1);
+   cs->VS_LOAD_BALANCING = etna_calculate_load_balance(&ctx->specs, num_regs);
 
+   cs->VS_START_PC = 0;
    cs->PS_END_PC = fs->code_size / 4;
    cs->PS_OUTPUT_REG = fs->ps_color_out_reg;
    cs->PS_INPUT_COUNT =
