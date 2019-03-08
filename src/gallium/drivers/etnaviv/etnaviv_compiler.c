@@ -2192,33 +2192,6 @@ fill_in_vs_outputs(struct etna_shader_variant *sobj, struct etna_compile *c)
 
    /* build two-level index for linking */
    build_output_index(sobj);
-
-   /* fill in "mystery meat" load balancing value. This value determines how
-    * work is scheduled between VS and PS
-    * in the unified shader architecture. More precisely, it is determined from
-    * the number of VS outputs, as well as chip-specific
-    * vertex output buffer size, vertex cache size, and the number of shader
-    * cores.
-    *
-    * XXX this is a conservative estimate, the "optimal" value is only known for
-    * sure at link time because some
-    * outputs may be unused and thus unmapped. Then again, in the general use
-    * case with GLSL the vertex and fragment
-    * shaders are linked already before submitting to Gallium, thus all outputs
-    * are used.
-    */
-   int half_out = (c->file[TGSI_FILE_OUTPUT].reg_size + 1) / 2;
-   assert(half_out);
-
-   uint32_t b = ((20480 / (c->specs->vertex_output_buffer_size -
-                           2 * half_out * c->specs->vertex_cache_size)) +
-                 9) /
-                10;
-   uint32_t a = (b + 256 / (c->specs->shader_core_count * half_out)) / 2;
-   sobj->vs_load_balancing = VIVS_VS_LOAD_BALANCING_A(MIN2(a, 255)) |
-                             VIVS_VS_LOAD_BALANCING_B(MIN2(b, 255)) |
-                             VIVS_VS_LOAD_BALANCING_C(0x3f) |
-                             VIVS_VS_LOAD_BALANCING_D(0x0f);
 }
 
 static bool
@@ -2513,7 +2486,6 @@ etna_dump_shader(const struct etna_shader_variant *shader)
    if (shader->processor == PIPE_SHADER_VERTEX) {
       printf("  vs_pos_out_reg=%i\n", shader->vs_pos_out_reg);
       printf("  vs_pointsize_out_reg=%i\n", shader->vs_pointsize_out_reg);
-      printf("  vs_load_balancing=0x%08x\n", shader->vs_load_balancing);
    } else {
       printf("  ps_color_out_reg=%i\n", shader->ps_color_out_reg);
       printf("  ps_depth_out_reg=%i\n", shader->ps_depth_out_reg);

@@ -85,7 +85,6 @@ struct etna_shader_variant {
    /* special outputs (vs only) */
    int vs_pos_out_reg; /* VS position output */
    int vs_pointsize_out_reg; /* VS point size output */
-   uint32_t vs_load_balancing;
 
    /* special outputs (ps only) */
    int ps_color_out_reg; /* color output register */
