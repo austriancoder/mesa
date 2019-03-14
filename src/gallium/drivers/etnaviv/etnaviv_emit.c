@@ -213,6 +213,12 @@ emit_pre_halti5_state(struct etna_context *ctx)
    etna_coalesce_end(stream, &coalesce);
 }
 
+/* TODO: hack */
+struct eir_shader_variant;
+
+extern void
+eir_uniforms_write(struct eir_shader_variant *variant, uint32_t *uniforms, unsigned *size);
+
 /* Weave state before draw operation. This function merges all the compiled
  * state blocks under the context into one device register state. Parts of
  * this state that are changed since last call (dirty) will be uploaded as
@@ -585,7 +591,18 @@ etna_emit_state(struct etna_context *ctx)
       ETNA_DIRTY_SHADER | ETNA_DIRTY_CONSTBUF;
 
    if (etna_mesa_debug & ETNA_DBG_NIR) {
-      /* TODO: add me */
+      struct eir_shader_variant *fs = ctx->shader.fs;
+      struct eir_shader_variant *vs = ctx->shader.vs;
+
+      if (dirty & uniform_dirty_bits)
+         eir_uniforms_write(
+            fs, ctx->shader_state.VS_UNIFORMS,
+            &ctx->shader_state.vs_uniforms_size);
+
+      if (dirty & uniform_dirty_bits)
+         eir_uniforms_write(
+            vs, ctx->shader_state.PS_UNIFORMS,
+            &ctx->shader_state.ps_uniforms_size);
    } else {
       struct etna_shader_variant *fs = ctx->shader.fs;
       struct etna_shader_variant *vs = ctx->shader.vs;
