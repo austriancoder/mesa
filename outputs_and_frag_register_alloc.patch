@@ -1,0 +1,962 @@
+diff --git a/src/etnaviv/compiler/eir.c b/src/etnaviv/compiler/eir.c
+index 398ae7443c5..a59b0cae52a 100644
+--- a/src/etnaviv/compiler/eir.c
++++ b/src/etnaviv/compiler/eir.c
+@@ -31,7 +31,7 @@
+ #include "util/ralloc.h"
+ 
+ struct eir *
+-eir_create(void)
++eir_create(unsigned nin, unsigned nout)
+ {
+    struct eir *ir = rzalloc(NULL, struct eir);
+ 
+@@ -39,6 +39,9 @@ eir_create(void)
+    util_dynarray_init(&ir->reg_alloc, ir);
+    util_dynarray_init(&ir->uniform_alloc, ir);
+ 
++   ir->num_inputs = nin;
++   ir->num_outputs = nout;
++
+    return ir;
+ }
+ 
+diff --git a/src/etnaviv/compiler/eir.h b/src/etnaviv/compiler/eir.h
+index e7eb1e74076..ebf659b1c1e 100644
+--- a/src/etnaviv/compiler/eir.h
++++ b/src/etnaviv/compiler/eir.h
+@@ -29,6 +29,7 @@
+ #define H_EIR
+ 
+ #include <assert.h>
++#include "compiler/shader_enums.h"
+ #include "util/list.h"
+ #include "util/u_dynarray.h"
+ #include "util/u_math.h"
+@@ -90,9 +91,40 @@ struct eir_block
+ 
+ enum eir_uniform_contents
+ {
++   EIR_UNIFORM_UNUSED,
+    EIR_UNIFORM_CONSTANT,
++   EIR_UNIFORM_TEXTURE_TXS, /* used for nir's txs */
+ };
+ 
++static inline const char *
++eir_uniform_content(enum eir_uniform_contents content, unsigned comp)
++{
++   assert(comp < 4);
++
++   switch(content) {
++   case EIR_UNIFORM_UNUSED:
++      return "unused";
++   case EIR_UNIFORM_CONSTANT:
++      return "constant";
++   case EIR_UNIFORM_TEXTURE_TXS:
++      switch (comp) {
++      case 0:
++         return "TXS width";
++      case 1:
++         return "TXS height";
++      case 2:
++         return "TXS depth";
++      case 3:
++         return "TXS unused";
++      }
++   default:
++      unreachable("unhandled content type");
++      break;
++   }
++
++   return NULL;
++}
++
+ struct eir_uniform_data
+ {
+    enum eir_uniform_contents content;
+@@ -103,6 +135,22 @@ struct eir
+ {
+    struct list_head block_list;
+ 
++	/* attributes/varyings: */
++	unsigned num_inputs;
++	struct {
++      unsigned slot;
++      unsigned reg;
++      unsigned ncomp;
++	} inputs[16];
++
++	/* varyings/outputs: */
++	unsigned num_outputs;
++	struct {
++      unsigned slot;
++      unsigned reg;
++      unsigned ncomp;
++	} outputs[16];
++
+    unsigned blocks;
+ 
+    /* keep track of numer of allocated registers
+@@ -125,7 +173,7 @@ struct eir_info {
+ };
+ 
+ struct eir *
+-eir_create(void);
++eir_create(unsigned nin, unsigned nout);
+ 
+ void
+ eir_destroy(struct eir *ir);
+@@ -193,7 +241,7 @@ struct eir_ra_reg_set *
+ eir_ra_alloc_reg_set(void *memctx);
+ 
+ bool
+-eir_register_allocate(struct eir *ir, struct eir_compiler *compiler);
++eir_register_allocate(struct eir *ir, gl_shader_stage type, struct eir_compiler *compiler);
+ 
+ void
+ eir_print(struct eir *ir);
+diff --git a/src/etnaviv/compiler/eir_compiler_nir.c b/src/etnaviv/compiler/eir_compiler_nir.c
+index 527d59b14c2..c6fe9dd738f 100644
+--- a/src/etnaviv/compiler/eir_compiler_nir.c
++++ b/src/etnaviv/compiler/eir_compiler_nir.c
+@@ -65,8 +65,7 @@ compile_init(struct eir_compiler *compiler,
+    ctx->compiler = compiler;
+ 
+    nir_shader *s = nir_shader_clone(ctx, v->shader->nir);
+-   ctx->ir = eir_create();
+-   ctx->ir->uniform_offset = s->num_uniforms * 4;
++
+    ctx->s = s;
+    ctx->variant = v;
+ 
+@@ -76,8 +75,6 @@ compile_init(struct eir_compiler *compiler,
+    v->vs_pointsize_out_reg = -1;
+    v->vs_pos_out_reg = -1;
+ 
+-   ctx->block = eir_block_create(ctx->ir);
+-
+    return ctx;
+ }
+ 
+@@ -291,6 +288,11 @@ emit_alu(struct eir_context *ctx, nir_alu_instr *alu)
+       instr = eir_SQRT(ctx->block, &dst, &src[0]);
+       break;
+ 
++   case nir_op_i2f32:
++   case nir_op_u2f32:
++      instr = eir_MOV(ctx->block, &dst, &src[0]);
++      break;
++
+    /* TODO: look at following instr to see what we need to do: 0ad-alpine-valley/0ad-40.tgsi */
+    case nir_op_seq:
+       /* fall-through */
+@@ -403,7 +405,7 @@ emit_intrinsic(struct eir_context *ctx, nir_intrinsic_instr *instr)
+ 
+    case nir_intrinsic_load_uniform: {
+       /* Offsets are in bytes but they should always be multiples of 4 */
+-      assert(nir_intrinsic_base(instr) % 4 == 0);
++      /*assert(nir_intrinsic_base(instr) % 4 == 0);*/
+ 
+       if (nir_src_is_const(instr->src[0])) {
+          const unsigned load_offset = nir_src_as_uint(instr->src[0]);
+@@ -478,6 +480,7 @@ emit_tex(struct eir_context *ctx, nir_tex_instr *tex)
+    const nir_op_info *info = &nir_op_infos[tex->op];
+    struct eir_register sampler;
+    struct eir_register coordinate;
++   MAYBE_UNUSED struct eir_register lod;
+ 
+    struct eir_register dst;
+    dst = get_nir_dest(ctx, &tex->dest);
+@@ -499,6 +502,10 @@ emit_tex(struct eir_context *ctx, nir_tex_instr *tex)
+          unreachable("Should be lowered by nir_lower_tex");
+          break;
+ 
++      case nir_tex_src_lod:
++         lod = get_nir_src(ctx, &tex->src[i].src);
++         break;
++
+       default:
+          compile_error(ctx, "Unhandled NIR tex src type: %d\n",
+                        tex->src[i].src_type);
+@@ -519,6 +526,37 @@ emit_tex(struct eir_context *ctx, nir_tex_instr *tex)
+       eir_TEXLDL(ctx->block, &dst, &sampler, &coordinate);
+       break;
+ 
++   case nir_texop_txs: {
++         const int dest_size = nir_tex_instr_dest_size(tex);
++         const unsigned unit = tex->texture_index;
++
++         assert(dest_size < 3);
++
++         /*
++          * we could be smarter...
++          * - do not waste one component of vec4 as we only return
++          *    dst.x = texture width(unit, lod)
++          *    dst.y = texture height(unit, lod)
++          *    dst.z = texture depth(unit, lod)
++          *    dst.w = wasted
++          * - get rid of mov and use uniform directly
++          */
++         const uint32_t v[4] = {
++            unit,
++            unit,
++            unit,
++            unit,
++         };
++
++         /* we do not support lod yet */
++         assert(nir_tex_instr_src_index(tex, nir_tex_src_lod) == 0);
++
++         struct eir_register size = eir_uniform_register_vec4(ctx->ir, EIR_UNIFORM_TEXTURE_TXS, v);
++
++         eir_MOV(ctx->block, &dst, &size);
++      }
++      break;
++
+    default:
+       compile_error(ctx, "Unhandled NIR tex op: %d\n", info->name);
+       break;
+@@ -580,6 +618,8 @@ emit_instr(struct eir_context *ctx, nir_instr *instr)
+       compile_error(ctx, "Unexpected NIR instruction type: %d\n", instr->type);
+       break;
+    case nir_instr_type_deref:
++      /* ignored, will be walked by the intrinsic using it. */
++      break;
+    case nir_instr_type_call:
+    case nir_instr_type_parallel_copy:
+       compile_error(ctx, "Unhandled NIR instruction type: %d\n", instr->type);
+@@ -704,10 +744,25 @@ emit_function(struct eir_context *ctx, nir_function_impl *impl)
+    emit_cf_list(ctx, &impl->body);
+ }
+ 
++static void inline
++assign_input(struct eir *ir, unsigned idx, unsigned slot, unsigned ncomp)
++{
++   ir->inputs[idx].reg = idx;
++   ir->inputs[idx].slot = slot;
++   ir->inputs[idx].ncomp = ncomp;
++}
++
++static void inline
++assign_output(struct eir *ir, unsigned idx, unsigned slot, unsigned ncomp)
++{
++   ir->outputs[idx].reg = idx;
++   ir->outputs[idx].slot = slot;
++   ir->outputs[idx].ncomp = ncomp;
++}
++
+ static void
+ setup_input(struct eir_context *ctx, nir_variable *in)
+ {
+-   struct eir_shader_variant *v = ctx->variant;
+    unsigned array_len = MAX2(glsl_get_length(in->type), 1);
+    unsigned ncomp = glsl_get_components(in->type);
+    unsigned n = in->data.driver_location;
+@@ -718,31 +773,20 @@ setup_input(struct eir_context *ctx, nir_variable *in)
+ 
+    /* let's pretend things other than vec4 don't exist */
+    compile_assert(ctx, ncomp == 4);
+-#if 0
++   compile_assert(ctx, n < ARRAY_SIZE(ctx->ir->inputs));
++
+    if (ctx->s->info.stage == MESA_SHADER_FRAGMENT) {
+-      compile_error(ctx, "unknown FS input name: %s\n",
+-            gl_varying_slot_name(slot));
++      assign_input(ctx->ir, n, slot, ncomp);
+    } else if (ctx->s->info.stage == MESA_SHADER_VERTEX) {
+-      compile_error(ctx, "unknown VS input name: %s\n",
+-            gl_varying_slot_name(slot));
++      assign_input(ctx->ir, n, slot, ncomp);
+    } else {
+       compile_error(ctx, "unknown shader type: %d\n", ctx->s->info.stage);
+    }
+-#endif
+-
+-   compile_assert(ctx, n < ARRAY_SIZE(v->inputs));
+-
+-   v->inputs[n].slot = slot;
+-   v->inputs[n].ncomp = ncomp;
+-   v->inputs[n].interpolate = in->data.interpolation;
+-
+-   v->num_inputs = MAX2(v->num_inputs, n + 1);
+ }
+ 
+ static void
+ setup_output(struct eir_context *ctx, nir_variable *out)
+ {
+-   struct eir_shader_variant *v = ctx->variant;
+    unsigned array_len = MAX2(glsl_get_length(out->type), 1);
+    unsigned ncomp = glsl_get_components(out->type);
+    unsigned n = out->data.driver_location;
+@@ -753,52 +797,55 @@ setup_output(struct eir_context *ctx, nir_variable *out)
+ 
+    /* let's pretend things other than vec4 don't exist */
+    compile_assert(ctx, ncomp == 4);
++   compile_assert(ctx, n < ARRAY_SIZE(ctx->ir->outputs));
+ 
+    if (ctx->s->info.stage == MESA_SHADER_FRAGMENT) {
+       switch (slot) {
+       case FRAG_RESULT_DEPTH:
+-         v->fs_depth_out_reg = n;
++         assign_output(ctx->ir, n, FRAG_RESULT_DEPTH, ncomp);
+          break;
+ 
+       case FRAG_RESULT_COLOR:
+-         v->fs_color_out_reg = n;
++         assign_output(ctx->ir, n, FRAG_RESULT_COLOR, ncomp);
+          break;
+ 
+       default:
+-            compile_error(ctx, "unknown FS output name: %s\n",
+-                  gl_frag_result_name(slot));
++			if (slot >= FRAG_RESULT_DATA0)
++				break;
++
++         compile_error(ctx, "unknown FS output name: %s\n",
++               gl_frag_result_name(slot));
+       }
+    } else if (ctx->s->info.stage == MESA_SHADER_VERTEX) {
+       switch (slot) {
+       case VARYING_SLOT_POS:
+-         v->vs_pos_out_reg = n;
++         assign_output(ctx->ir, n, VARYING_SLOT_POS, ncomp);
+          break;
+ 
+       case VARYING_SLOT_PSIZ:
+-         v->vs_pointsize_out_reg = n;
++         assign_output(ctx->ir, n, VARYING_SLOT_PSIZ, ncomp);
+          break;
+ 
+       case VARYING_SLOT_COL0:
++         assign_output(ctx->ir, n, VARYING_SLOT_COL0, ncomp);
+          break;
+ 
+       default:
+-         if (slot >= VARYING_SLOT_VAR0)
++         if (slot >= VARYING_SLOT_VAR0) {
++            assign_output(ctx->ir, n, slot, ncomp);
+             break;
+-         if ((VARYING_SLOT_TEX0 <= slot) && (slot <= VARYING_SLOT_TEX7))
++         }
++         if ((VARYING_SLOT_TEX0 <= slot) && (slot <= VARYING_SLOT_TEX7)) {
++            assign_output(ctx->ir, n, slot, ncomp);
+             break;
++         }
++
+          compile_error(ctx, "unknown VS output name: %s\n",
+                gl_varying_slot_name(slot));
+       }
+    } else {
+       compile_error(ctx, "unknown shader type: %d\n", ctx->s->info.stage);
+    }
+-
+-   compile_assert(ctx, n < ARRAY_SIZE(v->outputs));
+-
+-   v->outputs[n].ncomp = ncomp;
+-   v->outputs[n].slot = slot;
+-
+-   v->num_outputs = MAX2(v->num_outputs, n + 1);
+ }
+ 
+ static int
+@@ -818,6 +865,10 @@ emit_instructions(struct eir_context *ctx)
+    const unsigned ninputs  = max_drvloc(&ctx->s->inputs) + 1;
+    const unsigned noutputs = max_drvloc(&ctx->s->outputs) + 1;
+ 
++   ctx->ir = eir_create(ninputs, noutputs);
++   ctx->block = eir_block_create(ctx->ir);
++   ctx->ir->uniform_offset = ctx->s->num_uniforms * 4;
++
+    // keep t0..tn registers reserved for inputs and outputs
+    const unsigned reserved = MAX2(ninputs, noutputs);
+    for (unsigned i = 0; i < reserved; i++)
+@@ -847,6 +898,69 @@ emit_instructions(struct eir_context *ctx)
+    emit_function(ctx, fxn);
+ }
+ 
++static void
++setup_special_vert_register(const struct eir *ir, unsigned i, struct eir_shader_variant *v)
++{
++   const int reg = ir->outputs[i].reg;
++
++   switch (ir->outputs[i].slot) {
++   case VARYING_SLOT_POS:
++      v->vs_pos_out_reg = reg;
++      break;
++   default:
++      /* nothing to do */
++      break;
++   }
++}
++
++static void
++setup_special_frag_register(const struct eir *ir, unsigned i, struct eir_shader_variant *v)
++{
++   const int reg = ir->outputs[i].reg;
++
++   switch (ir->outputs[i].slot) {
++   case FRAG_RESULT_DEPTH:
++      v->fs_depth_out_reg = reg;
++      break;
++   case FRAG_RESULT_COLOR:
++      v->fs_color_out_reg = reg;
++      break;
++   default:
++      /* nothing to do */
++      break;
++   }
++}
++
++static void
++setup_shader_io(struct eir_context *ctx, struct eir_shader_variant *v)
++{
++   const struct eir *ir = ctx->ir;
++
++   for (unsigned i = 0; i < ir->num_inputs; i++) {
++      v->inputs[i].reg = ir->inputs[i].reg;
++      v->inputs[i].slot = ir->inputs[i].slot;
++      v->inputs[i].ncomp = ir->inputs[i].ncomp;
++
++      /* TODO:
++      v->inputs[n].interpolate = in->data.interpolation;
++      */
++   }
++
++   for (unsigned i = 0; i < ir->num_outputs; i++) {
++      v->outputs[i].reg = ir->outputs[i].reg;
++      v->outputs[i].slot = ir->outputs[i].slot;
++      v->outputs[i].ncomp = ir->outputs[i].ncomp;
++
++      if (v->shader->type == MESA_SHADER_VERTEX)
++         setup_special_vert_register(ir, i, v);
++      else if (v->shader->type == MESA_SHADER_FRAGMENT)
++         setup_special_frag_register(ir, i, v);
++   }
++
++   v->num_inputs = ir->num_inputs;
++   v->num_outputs = ir->num_outputs;
++}
++
+ int
+ eir_compile_shader_nir(struct eir_compiler *compiler,
+                        struct eir_shader_variant *v)
+@@ -865,8 +979,6 @@ eir_compile_shader_nir(struct eir_compiler *compiler,
+       goto out;
+    }
+ 
+-   v->ir = ctx->ir;
+-
+    emit_instructions(ctx);
+ 
+    if (ctx->error) {
+@@ -892,7 +1004,7 @@ eir_compile_shader_nir(struct eir_compiler *compiler,
+       eir_print(ctx->ir);
+    }
+ 
+-   success = eir_register_allocate(ctx->ir, ctx->compiler);
++   success = eir_register_allocate(ctx->ir, v->shader->type, ctx->compiler);
+    if (!success) {
+       DBG(compiler, "RA failed!");
+       ret = -1;
+@@ -904,6 +1016,9 @@ eir_compile_shader_nir(struct eir_compiler *compiler,
+       eir_print(ctx->ir);
+    }
+ 
++   setup_shader_io(ctx, v);
++
++   v->ir = ctx->ir;
+    v->num_temps = ctx->ir->num_temps;
+    v->const_size = ctx->ir->uniform_offset;
+ 
+diff --git a/src/etnaviv/compiler/eir_register_allocate.c b/src/etnaviv/compiler/eir_register_allocate.c
+index 51854e0c156..f089ee2c0db 100644
+--- a/src/etnaviv/compiler/eir_register_allocate.c
++++ b/src/etnaviv/compiler/eir_register_allocate.c
+@@ -210,7 +210,15 @@ reswizzle(struct eir_register *reg, int virt_reg)
+    reg->swizzle = swizzle[type];
+ }
+ 
+-static void inline
++static unsigned inline
++result(struct ra_graph *g, unsigned reg)
++{
++   const int virt_reg = ra_get_node_reg(g, reg);
++
++   return etna_reg_get_base(virt_reg);
++}
++
++static void
+ assign(struct eir_register *reg, struct ra_graph *g, unsigned *num_temps)
+ {
+    if (reg->type != EIR_REG_TEMP)
+@@ -231,13 +239,30 @@ assign(struct eir_register *reg, struct ra_graph *g, unsigned *num_temps)
+ }
+ 
+ bool
+-eir_register_allocate(struct eir *ir, struct eir_compiler *compiler)
++eir_register_allocate(struct eir *ir, gl_shader_stage type, struct eir_compiler *compiler)
+ {
+-   const int num = util_dynarray_num_elements(&ir->reg_alloc, unsigned);
++   int num = util_dynarray_num_elements(&ir->reg_alloc, unsigned);
+ 
+    if (num == 0)
+       return true;
+ 
++   int frag_varying_pos = -1;
++
++   if (type == MESA_SHADER_FRAGMENT) {
++      for (unsigned i = 0; i < ir->num_inputs; i++) {
++         if (ir->inputs[i].slot == VARYING_SLOT_POS) {
++            frag_varying_pos = i;
++            break;
++         }
++      }
++
++      /* allocate one extra register for hardwired t0 register */
++      if (frag_varying_pos == -1) {
++         num++;
++         frag_varying_pos = num - 1;
++      }
++   }
++
+    struct ra_graph *g = ra_alloc_interference_graph(compiler->set->regs, num);
+    unsigned num_temps = 0;
+ 
+@@ -288,6 +313,17 @@ eir_register_allocate(struct eir *ir, struct eir_compiler *compiler)
+       }
+    }
+ 
++   if (type == MESA_SHADER_FRAGMENT) {
++      for (unsigned i = 0; i < num; i++) {
++         for (int j = 0; j < i; j++) {
++            ra_add_node_interference(g, i, j);
++         }
++      }
++
++      /* hard code frag_color_out_idx to register t0 */
++      ra_set_node_reg(g, frag_varying_pos, 0);
++   }
++
+    bool success = ra_allocate(g);
+    if (!success)
+       goto out;
+@@ -301,6 +337,10 @@ eir_register_allocate(struct eir *ir, struct eir_compiler *compiler)
+       }
+    }
+ 
++   /* update outputs array */
++   for (unsigned i = 0; i < ir->num_outputs; i++)
++      ir->outputs[i].reg = result(g, i);
++
+    ir->num_temps = num_temps;
+ 
+    /* free live ranges information as they are not needed anymore */
+diff --git a/src/etnaviv/compiler/eir_shader.c b/src/etnaviv/compiler/eir_shader.c
+index 9334725b4c2..686916e0f2f 100644
+--- a/src/etnaviv/compiler/eir_shader.c
++++ b/src/etnaviv/compiler/eir_shader.c
+@@ -259,10 +259,11 @@ eir_dump_shader(struct eir_shader_variant *v)
+    printf("immediates:\n");
+    i = 0;
+    util_dynarray_foreach(&v->uniforms, struct eir_uniform_data, uniform) {
+-      printf(" u%i.%s = 0x%08x\n",
++      printf(" u%i.%s = 0x%08x (%s)\n",
+              (v->const_size + i) / 4,
+              swizzle_names[i % 4],
+-             uniform->data);
++             uniform->data,
++             eir_uniform_content(uniform->content, i % 4));
+ 
+       i++;
+    }
+diff --git a/src/etnaviv/compiler/eir_shader.h b/src/etnaviv/compiler/eir_shader.h
+index 7adbaf2bf93..1d0ff62266f 100644
+--- a/src/etnaviv/compiler/eir_shader.h
++++ b/src/etnaviv/compiler/eir_shader.h
+@@ -29,7 +29,6 @@
+ #define H_EIR_SHADER
+ 
+ #include "compiler/glsl_types.h"
+-#include "compiler/shader_enums.h"
+ #include "eir.h"
+ #include <stdbool.h>
+ #include <util/u_debug.h>
+@@ -75,6 +74,7 @@ struct eir_shader_variant
+ 	/* attributes/varyings: */
+ 	unsigned num_inputs;
+ 	struct {
++      uint8_t reg;
+ 		uint8_t slot;
+ 		uint8_t ncomp;
+ 
+@@ -84,6 +84,7 @@ struct eir_shader_variant
+ 	/* varyings/outputs: */
+ 	unsigned num_outputs;
+ 	struct {
++      uint8_t reg;
+ 		uint8_t slot;
+ 		uint8_t ncomp;
+ 	} outputs[16];
+@@ -123,9 +124,6 @@ eir_shader_destroy(struct eir_shader *shader);
+ struct eir_shader_variant *
+ eir_shader_get_variant(struct eir_shader *shader, struct eir_shader_key key, bool *created);
+ 
+-void
+-eir_uniforms_write(struct eir_shader_variant *variant, uint32_t *uniforms, unsigned *size);
+-
+ void
+ eir_dump_shader(struct eir_shader_variant *variant);
+ 
+diff --git a/src/etnaviv/compiler/eir_uniform.c b/src/etnaviv/compiler/eir_uniform.c
+index 075c1a8f582..2bd0e5d7abe 100644
+--- a/src/etnaviv/compiler/eir_uniform.c
++++ b/src/etnaviv/compiler/eir_uniform.c
+@@ -45,6 +45,8 @@ eir_uniform_register(struct eir *ir, enum eir_uniform_contents content, uint32_t
+    const unsigned size = util_dynarray_num_elements(&ir->uniform_alloc, struct eir_uniform_data);
+    unsigned i = 0;
+ 
++   /* TODO: handle first free */
++
+    /* is there already something useful in the array? */
+    util_dynarray_foreach(&ir->uniform_alloc, struct eir_uniform_data, uniform) {
+       if (uniform->content == content && uniform->data == value)
+@@ -87,9 +89,14 @@ eir_uniform_register_vec4(struct eir *ir, enum eir_uniform_contents content, con
+          break;
+    }
+ 
+-   if (component != 4)
++   if (component != 4) {
++      /* pad out current uniform vector */
++      for (i = size % 4; i < 4; i++)
++         append_uniform(ir, EIR_UNIFORM_UNUSED, 0);
++
+       for (component = 0; component < 4; component++)
+          append_uniform(ir, content, values[component]);
++   }
+ 
+    i = util_dynarray_num_elements(&ir->uniform_alloc, struct eir_uniform_data) - 4;
+    i += ir->uniform_offset;
+@@ -102,24 +109,3 @@ eir_uniform_register_vec4(struct eir *ir, enum eir_uniform_contents content, con
+ 
+    return reg;
+ }
+-
+-void
+-eir_uniforms_write(struct eir_shader_variant *variant, uint32_t *uniforms, unsigned *size)
+-{
+-   unsigned i = 0;
+-
+-   /* TODO: user data */
+-
+-   util_dynarray_foreach(&variant->uniforms, struct eir_uniform_data, uniform) {
+-      switch (uniform->content) {
+-      case EIR_UNIFORM_CONSTANT:
+-         uniforms[i] = uniform->data;
+-         break;
+-      default:
+-         unreachable("unhandled content type");
+-         break;
+-      }
+-   }
+-
+-   *size = i;
+-}
+diff --git a/src/etnaviv/compiler/tests/eir_assemble.cpp b/src/etnaviv/compiler/tests/eir_assemble.cpp
+index 63535908a32..a6c70d388c8 100644
+--- a/src/etnaviv/compiler/tests/eir_assemble.cpp
++++ b/src/etnaviv/compiler/tests/eir_assemble.cpp
+@@ -30,7 +30,7 @@
+ 
+ TEST (AssembleTest, NopAssembleDisassemble)
+ {
+-   struct eir *ir = eir_create();
++   struct eir *ir = eir_create(0, 0);
+    struct eir_block *block = eir_block_create(ir);
+ 
+    eir_NOP(block);
+@@ -54,7 +54,7 @@ TEST (AssembleTest, NopAssembleDisassemble)
+ 
+ TEST (AssembleTest, Swizzle)
+ {
+-   struct eir *ir = eir_create();
++   struct eir *ir = eir_create(0, 0);
+    struct eir_block *block = eir_block_create(ir);
+ 
+    struct eir_register d = eir_temp_register(ir, 4);
+@@ -86,7 +86,7 @@ TEST (AssembleTest, Swizzle)
+ 
+ TEST (AssembleTest, SwizzleReplicate)
+ {
+-   struct eir *ir = eir_create();
++   struct eir *ir = eir_create(0, 0);
+    struct eir_block *block = eir_block_create(ir);
+ 
+    struct eir_register d = eir_temp_register(ir, 4);
+diff --git a/src/etnaviv/compiler/tests/eir_legalize.cpp b/src/etnaviv/compiler/tests/eir_legalize.cpp
+index 709910132af..ab52fdbabc3 100644
+--- a/src/etnaviv/compiler/tests/eir_legalize.cpp
++++ b/src/etnaviv/compiler/tests/eir_legalize.cpp
+@@ -30,7 +30,7 @@
+ 
+ TEST (LegalizeTest, EmptyShader)
+ {
+-   struct eir *ir = eir_create();
++   struct eir *ir = eir_create(0, 0);
+    struct eir_block *block = eir_block_create(ir);
+ 
+    eir_legalize(ir);
+@@ -44,7 +44,7 @@ TEST (LegalizeTest, EmptyShader)
+ 
+ TEST (LegalizeTest, UniformsTwoSame)
+ {
+-   struct eir *ir = eir_create();
++   struct eir *ir = eir_create(0, 0);
+    struct eir_block *block = eir_block_create(ir);
+    struct eir_register dst = eir_temp_register(ir, 4);
+    struct eir_register src = eir_uniform_register_ui(ir, 1);
+@@ -64,7 +64,7 @@ TEST (LegalizeTest, UniformsTwoSame)
+ 
+ TEST (LegalizeTest, UniformsThreeSame)
+ {
+-   struct eir *ir = eir_create();
++   struct eir *ir = eir_create(0, 0);
+    struct eir_block *block = eir_block_create(ir);
+    struct eir_register dst = eir_temp_register(ir, 4);
+    struct eir_register src = eir_uniform_register_ui(ir, 1);
+@@ -87,7 +87,7 @@ TEST (LegalizeTest, UniformsTwoDifferent)
+ {
+    static const uint32_t val0[] = { 0, 1, 2, 3 };
+    static const uint32_t val1[] = { 4, 5, 6, 7 };
+-   struct eir *ir = eir_create();
++   struct eir *ir = eir_create(0, 0);
+    struct eir_block *block = eir_block_create(ir);
+    struct eir_register dst = eir_temp_register(ir, 4);
+    struct eir_register src0 = eir_uniform_register_vec4_ui(ir, val0);
+@@ -113,7 +113,7 @@ TEST (LegalizeTest, UniformsThreeDifferent)
+    static const uint32_t val0[] = { 0, 1, 2, 3 };
+    static const uint32_t val1[] = { 4, 5, 6, 7 };
+    static const uint32_t val2[] = { 8, 9, 10, 11 };
+-   struct eir *ir = eir_create();
++   struct eir *ir = eir_create(0, 0);
+    struct eir_block *block = eir_block_create(ir);
+    struct eir_register dst = eir_temp_register(ir, 4);
+    struct eir_register src0 = eir_uniform_register_vec4_ui(ir, val0);
+diff --git a/src/etnaviv/compiler/tests/eir_live_variables.cpp b/src/etnaviv/compiler/tests/eir_live_variables.cpp
+index 965117fc261..98717d16f49 100644
+--- a/src/etnaviv/compiler/tests/eir_live_variables.cpp
++++ b/src/etnaviv/compiler/tests/eir_live_variables.cpp
+@@ -31,7 +31,7 @@
+ 
+ TEST (LiveVariableTest, NOP)
+ {
+-   struct eir *ir = eir_create();
++   struct eir *ir = eir_create(0, 0);
+    struct eir_block *block = eir_block_create(ir);
+ 
+    eir_NOP(block);
+@@ -49,7 +49,7 @@ TEST (LiveVariableTest, NOP)
+ 
+ TEST (LiveVariableTest, MOV)
+ {
+-   struct eir *ir = eir_create();
++   struct eir *ir = eir_create(0, 0);
+    struct eir_block *block = eir_block_create(ir);
+ 
+    struct eir_register dst = eir_temp_register(ir, 4);
+diff --git a/src/etnaviv/compiler/tests/eir_uniform.cpp b/src/etnaviv/compiler/tests/eir_uniform.cpp
+index cbb77789c51..a62ecb1576f 100644
+--- a/src/etnaviv/compiler/tests/eir_uniform.cpp
++++ b/src/etnaviv/compiler/tests/eir_uniform.cpp
+@@ -30,7 +30,7 @@
+ 
+ TEST (UniformTest, Basic)
+ {
+-   struct eir *ir = eir_create();
++   struct eir *ir = eir_create(0, 0);
+    struct eir_register u;
+    const struct eir_uniform_data *data;
+ 
+@@ -49,7 +49,7 @@ TEST (UniformTest, Basic)
+ 
+ TEST (UniformTest, EqualUniforms)
+ {
+-   struct eir *ir = eir_create();
++   struct eir *ir = eir_create(0, 0);
+    struct eir_register u1, u2;
+ 
+    u1 = eir_uniform_register_ui(ir, 1);
+@@ -68,7 +68,7 @@ TEST (UniformTest, EqualUniforms)
+ 
+ TEST (UniformTest, MultipeSwizzles)
+ {
+-   struct eir *ir = eir_create();
++   struct eir *ir = eir_create(0, 0);
+    struct eir_register u1, u2, u3, u4, u5;
+    const struct eir_uniform_data *data;
+ 
+@@ -127,7 +127,7 @@ TEST (UniformTest, MultipeSwizzles)
+ TEST (UniformTest, BasicVec4)
+ {
+    static const uint32_t values[4] = { 1, 2, 3, 4 };
+-   struct eir *ir = eir_create();
++   struct eir *ir = eir_create(0, 0);
+    struct eir_register u;
+    struct eir_uniform_data *data;
+ 
+@@ -159,7 +159,7 @@ TEST (UniformTest, BasicVec4)
+ TEST (UniformTest, EqualUnfiormsVec4)
+ {
+    static const uint32_t values[4] = { 1, 2, 3, 4 };
+-   struct eir *ir = eir_create();
++   struct eir *ir = eir_create(0, 0);
+    struct eir_register u1, u2;
+    struct eir_uniform_data *data;
+ 
+diff --git a/src/gallium/drivers/etnaviv/etnaviv_eir.c b/src/gallium/drivers/etnaviv/etnaviv_eir.c
+index 3c7cc899e3b..a3ae663c13f 100644
+--- a/src/gallium/drivers/etnaviv/etnaviv_eir.c
++++ b/src/gallium/drivers/etnaviv/etnaviv_eir.c
+@@ -36,6 +36,8 @@
+ #include "etnaviv/compiler/eir_shader.h"
+ #include "pipe/p_state.h"
+ 
++#include "etnaviv_context.h"
++
+ static void
+ dump_shader_info(struct eir_shader_variant *v, struct pipe_debug_callback *debug)
+ {
+@@ -109,8 +111,6 @@ eir_shader_variant(struct eir_shader *shader, struct eir_shader_key key,
+    if (created)
+       dump_shader_info(v, debug);
+ 
+-printf("eir_shader_variant done\n");
+-
+    return v;
+ }
+ 
+@@ -125,3 +125,59 @@ eir_tgsi_to_nir(const struct tgsi_token *tokens, struct pipe_screen *screen)
+ 
+    return tgsi_to_nir(tokens, screen);
+ }
++
++#if 0
++static uint32_t
++get_texture_size(struct v3d_texture_stateobj *texstate,
++                 enum eir_uniform_contents contents,
++                 uint32_t data)
++{
++   struct pipe_sampler_view *texture = texstate->textures[data];
++
++   switch (contents) {
++   case EIR_UNIFORM_TEXTURE_TXS:
++            return u_minify(texture->texture->width0,
++                           texture->u.tex.first_level);
++   case QUNIFORM_TEXTURE_HEIGHT:
++            return u_minify(texture->texture->height0,
++                           texture->u.tex.first_level);
++   case QUNIFORM_TEXTURE_DEPTH:
++            return u_minify(texture->texture->depth0,
++                           texture->u.tex.first_level);
++   case QUNIFORM_TEXTURE_ARRAY_SIZE:
++            return texture->texture->array_size;
++   case QUNIFORM_TEXTURE_LEVELS:
++            return (texture->u.tex.last_level -
++                  texture->u.tex.first_level) + 1;
++   default:
++            unreachable("Bad texture size field");
++   }
++}
++#endif
++
++void
++eir_uniforms_write(const struct etna_context *ctx,
++                   struct eir_shader_variant *variant,
++                   uint32_t *uniforms, unsigned *size)
++{
++   const bool frag = variant == ctx->shader.fs;
++   unsigned i = 0;
++
++   /* TODO: user data */
++
++   util_dynarray_foreach(&variant->uniforms, struct eir_uniform_data, uniform) {
++      switch (uniform->content) {
++      case EIR_UNIFORM_UNUSED:
++         uniforms[i] = 0;
++         break;
++      case EIR_UNIFORM_CONSTANT:
++         uniforms[i] = uniform->data;
++         break;
++      default:
++         unreachable("unhandled content type");
++         break;
++      }
++   }
++
++   *size = i;
++}
+diff --git a/src/gallium/drivers/etnaviv/etnaviv_eir.h b/src/gallium/drivers/etnaviv/etnaviv_eir.h
+index 16fd0b4af7a..5fbdaaba2f8 100644
+--- a/src/gallium/drivers/etnaviv/etnaviv_eir.h
++++ b/src/gallium/drivers/etnaviv/etnaviv_eir.h
+@@ -31,6 +31,8 @@
+ #include "etnaviv/compiler/eir_shader.h"
+ #include "pipe/p_state.h"
+ 
++struct etna_context;
++
+ struct eir_shader *
+ eir_shader_create(struct eir_compiler *compiler,
+                   const struct pipe_shader_state *cso,
+@@ -45,4 +47,9 @@ eir_shader_variant(struct eir_shader *shader, struct eir_shader_key key,
+ struct nir_shader *
+ eir_tgsi_to_nir(const struct tgsi_token *tokens, struct pipe_screen *screen);
+ 
++void
++eir_uniforms_write(const struct etna_context *ctx,
++                   struct eir_shader_variant *variant,
++                   uint32_t *uniforms, unsigned *size);
++
+ #endif
+diff --git a/src/gallium/drivers/etnaviv/etnaviv_emit.c b/src/gallium/drivers/etnaviv/etnaviv_emit.c
+index 4aaa4583166..98594d560ac 100644
+--- a/src/gallium/drivers/etnaviv/etnaviv_emit.c
++++ b/src/gallium/drivers/etnaviv/etnaviv_emit.c
+@@ -217,7 +217,9 @@ emit_pre_halti5_state(struct etna_context *ctx)
+ struct eir_shader_variant;
+ 
+ extern void
+-eir_uniforms_write(struct eir_shader_variant *variant, uint32_t *uniforms, unsigned *size);
++eir_uniforms_write(const struct etna_context *ctx,
++                   struct eir_shader_variant *variant,
++                   uint32_t *uniforms, unsigned *size);
+ 
+ /* Weave state before draw operation. This function merges all the compiled
+  * state blocks under the context into one device register state. Parts of
+@@ -611,12 +613,12 @@ etna_emit_state(struct etna_context *ctx)
+ 
+       if (dirty & uniform_dirty_bits)
+          eir_uniforms_write(
+-            fs, ctx->shader_state.VS_UNIFORMS,
++            ctx, fs, ctx->shader_state.VS_UNIFORMS,
+             &ctx->shader_state.vs_uniforms_size);
+ 
+       if (dirty & uniform_dirty_bits)
+          eir_uniforms_write(
+-            vs, ctx->shader_state.PS_UNIFORMS,
++            ctx, vs, ctx->shader_state.PS_UNIFORMS,
+             &ctx->shader_state.ps_uniforms_size);
+    } else {
+       struct etna_shader_variant *fs = ctx->shader.fs;
+diff --git a/src/gallium/drivers/etnaviv/etnaviv_uniforms.c b/src/gallium/drivers/etnaviv/etnaviv_uniforms.c
+index a8d970d185a..9500eef7fd0 100644
+--- a/src/gallium/drivers/etnaviv/etnaviv_uniforms.c
++++ b/src/gallium/drivers/etnaviv/etnaviv_uniforms.c
+@@ -54,6 +54,8 @@ get_texrect_scale(const struct etna_context *ctx, bool frag,
+    else
+       dim = texture->texture->height0;
+ 
++printf("!!!!!! dim: %d\n", dim);
++
+    return fui(1.0f / dim);
+ }
+ 
