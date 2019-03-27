@@ -24,6 +24,7 @@
  *    Wladimir J. van der Laan <laanwj@gmail.com>
  */
 
+#include "etnaviv_eir.h"   /* TODO: needs to stay on top */
 #include "etnaviv_emit.h"
 
 #include "etnaviv_blend.h"
@@ -212,12 +213,6 @@ emit_pre_halti5_state(struct etna_context *ctx)
    }
    etna_coalesce_end(stream, &coalesce);
 }
-
-/* TODO: hack */
-struct eir_shader_variant;
-
-extern void
-eir_uniforms_write(struct eir_shader_variant *variant, uint32_t *uniforms, unsigned *size);
 
 /* Weave state before draw operation. This function merges all the compiled
  * state blocks under the context into one device register state. Parts of
