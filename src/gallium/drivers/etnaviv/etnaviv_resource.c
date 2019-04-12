@@ -369,6 +369,14 @@ etna_resource_create(struct pipe_screen *pscreen,
    if (templat->target == PIPE_TEXTURE_3D)
       layout = ETNA_LAYOUT_LINEAR;
 
+   /* The render pipe can't handle linear and there is no code to do yet another
+    * layout transformation for this case, so we only respect the linear flag
+    * if the resource isn't meant to be rendered.
+    */
+   if ((templat->bind & PIPE_BIND_LINEAR) &&
+       !(templat->bind & PIPE_BIND_RENDER_TARGET))
+      layout = ETNA_LAYOUT_LINEAR;
+
    /* modifier is only used for scanout surfaces, so safe to use LINEAR here */
    return etna_resource_alloc(pscreen, layout, mode, DRM_FORMAT_MOD_LINEAR, templat);
 }
