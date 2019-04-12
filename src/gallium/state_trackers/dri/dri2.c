@@ -1083,7 +1083,9 @@ static GLboolean
 dri2_query_image(__DRIimage *image, int attrib, int *value)
 {
    struct winsys_handle whandle;
+   struct pipe_resource *tex;
    unsigned usage;
+   int i;
 
    if (image->use & __DRI_IMAGE_USE_BACKBUFFER)
       usage = PIPE_HANDLE_USAGE_EXPLICIT_FLUSH;
@@ -1157,7 +1159,9 @@ dri2_query_image(__DRIimage *image, int attrib, int *value)
       }
       return GL_TRUE;
    case __DRI_IMAGE_ATTRIB_NUM_PLANES:
-      *value = 1;
+      for (i = 0, tex = image->texture; i < 4 && tex; tex = tex->next)
+         i++;
+      *value = i;
       return GL_TRUE;
    case __DRI_IMAGE_ATTRIB_MODIFIER_UPPER:
       whandle.type = WINSYS_HANDLE_TYPE_KMS;
