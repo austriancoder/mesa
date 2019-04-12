@@ -274,6 +274,7 @@ etna_resource_alloc(struct pipe_screen *pscreen, unsigned layout,
       return NULL;
 
    rsc->base = *templat;
+   rsc->base.next = NULL;
    rsc->base.screen = pscreen;
    rsc->base.nr_samples = nr_samples;
    rsc->layout = layout;
