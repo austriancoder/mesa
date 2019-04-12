@@ -1275,9 +1275,17 @@ static __DRIimage *
 dri2_from_planar(__DRIimage *image, int plane, void *loaderPrivate)
 {
    __DRIimage *img;
+   struct pipe_resource *tex = image->texture;
+   int i;
 
-   if (plane != 0)
+   if (plane >= 3)
       return NULL;
+
+   for (i = 0; i < plane; i++) {
+      tex = tex->next;
+      if (!tex)
+         return NULL;
+   }
 
    if (image->dri_components == 0)
       return NULL;
@@ -1285,6 +1293,8 @@ dri2_from_planar(__DRIimage *image, int plane, void *loaderPrivate)
    img = dri2_dup_image(image, loaderPrivate);
    if (img == NULL)
       return NULL;
+
+   pipe_resource_reference(&img->texture, tex);
 
    if (img->texture->screen->resource_changed)
       img->texture->screen->resource_changed(img->texture->screen,
