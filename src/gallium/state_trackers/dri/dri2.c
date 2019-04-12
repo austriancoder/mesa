@@ -776,6 +776,24 @@ dri2_update_tex_buffer(struct dri_drawable *drawable,
    /* no-op */
 }
 
+static enum pipe_format get_plane_format(struct pipe_screen *pscreen,
+                                         enum pipe_format pf,
+                                         enum pipe_texture_target target,
+                                         unsigned usage, int plane)
+{
+
+   /* If the driver supports the format natively, no need to re-write */
+   if (pscreen->is_format_supported(pscreen, pf, target, 0, 0, usage))
+      return pf;
+
+   if (pf == PIPE_FORMAT_IYUV || (pf == PIPE_FORMAT_NV12 && plane == 0))
+      return PIPE_FORMAT_R8_UNORM;
+
+   if (pf == PIPE_FORMAT_NV12 && plane == 1)
+      return PIPE_FORMAT_RG88_UNORM;
+
+   return PIPE_FORMAT_NONE;
+}
 static __DRIimage *
 dri2_create_image_from_winsys(__DRIscreen *_screen,
                               int width, int height, enum pipe_format pf,
@@ -800,9 +818,9 @@ dri2_create_image_from_winsys(__DRIscreen *_screen,
       /* YUV format sampling can be emulated by the Mesa state tracker by
        * using multiple R8/RG88 samplers. So try to rewrite the pipe format.
        */
-      pf = PIPE_FORMAT_R8_UNORM;
 
-      if (pscreen->is_format_supported(pscreen, pf, screen->target, 0, 0,
+      if (pscreen->is_format_supported(pscreen, PIPE_FORMAT_R8_UNORM,
+                                       screen->target, 0, 0,
                                        PIPE_BIND_SAMPLER_VIEW))
          tex_usage |= PIPE_BIND_SAMPLER_VIEW;
    }
@@ -829,23 +847,17 @@ dri2_create_image_from_winsys(__DRIscreen *_screen,
       case 0:
          templ.width0 = width;
          templ.height0 = height;
-         templ.format = pf;
          break;
       case 1:
-         templ.width0 = width / 2;
-         templ.height0 = height / 2;
-         templ.format = (num_handles == 2) ?
-               PIPE_FORMAT_RG88_UNORM :   /* NV12, etc */
-               PIPE_FORMAT_R8_UNORM;      /* I420, etc */
-         break;
       case 2:
          templ.width0 = width / 2;
          templ.height0 = height / 2;
-         templ.format = PIPE_FORMAT_R8_UNORM;
          break;
       default:
          unreachable("too many planes!");
       }
+
+      templ.format = get_plane_format(pscreen, pf, screen->target, tex_usage, i);
 
       tex = pscreen->resource_from_handle(pscreen,
             &templ, &whandle[i], PIPE_HANDLE_USAGE_FRAMEBUFFER_WRITE);
