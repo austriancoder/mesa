@@ -471,6 +471,7 @@ get_sampler_view_format(struct st_context *st,
                         const struct st_texture_object *stObj,
                         bool srgb_skip_decode)
 {
+   struct pipe_screen *pscreen = st->pipe->screen;
    enum pipe_format format;
 
    GLenum baseFormat = _mesa_base_tex_image(&stObj->base)->_BaseFormat;
@@ -489,15 +490,19 @@ get_sampler_view_format(struct st_context *st,
    if (srgb_skip_decode)
       format = util_format_linear(format);
 
-   /* Use R8_UNORM for video formats */
-   switch (format) {
-   case PIPE_FORMAT_NV12:
-   case PIPE_FORMAT_IYUV:
-      format = PIPE_FORMAT_R8_UNORM;
-      break;
-   default:
-      break;
+   if (!pscreen->is_format_supported(pscreen, format, PIPE_TEXTURE_2D, 0, 0,
+                                     PIPE_BIND_SAMPLER_VIEW)) {
+      /* Use R8_UNORM for video formats */
+      switch (format) {
+      case PIPE_FORMAT_NV12:
+      case PIPE_FORMAT_IYUV:
+         format = PIPE_FORMAT_R8_UNORM;
+         break;
+      default:
+         break;
+      }
    }
+
    return format;
 }
 

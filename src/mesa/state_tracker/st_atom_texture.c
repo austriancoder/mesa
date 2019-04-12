@@ -174,9 +174,15 @@ update_textures(struct st_context *st,
       GLuint extra = 0;
       struct st_texture_object *stObj =
             st_get_texture_object(st->ctx, prog, unit);
+      struct pipe_screen *pscreen = st->pipe->screen;
       struct pipe_sampler_view tmpl;
 
       if (!stObj)
+         continue;
+
+      if (pscreen->is_format_supported(pscreen, st_get_view_format(stObj),
+                                       sampler_views[unit]->target, 0, 0,
+                                       PIPE_BIND_SAMPLER_VIEW))
          continue;
 
       /* use original view as template: */

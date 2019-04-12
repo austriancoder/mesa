@@ -67,6 +67,12 @@ st_get_external_sampler_key(struct st_context *st, struct gl_program *prog)
       unsigned unit = u_bit_scan(&mask);
       struct st_texture_object *stObj =
             st_get_texture_object(st->ctx, prog, unit);
+      struct pipe_screen *pscreen = st->pipe->screen;
+
+      if (pscreen->is_format_supported(pscreen, st_get_view_format(stObj),
+                                       PIPE_TEXTURE_2D, 0, 0,
+                                       PIPE_BIND_SAMPLER_VIEW))
+         continue;
 
       switch (st_get_view_format(stObj)) {
       case PIPE_FORMAT_NV12:

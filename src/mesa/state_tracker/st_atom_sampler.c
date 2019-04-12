@@ -303,8 +303,14 @@ update_shader_samplers(struct st_context *st,
       struct st_texture_object *stObj =
             st_get_texture_object(st->ctx, prog, unit);
       struct pipe_sampler_state *sampler = samplers + unit;
+      struct pipe_screen *pscreen = st->pipe->screen;
 
       if (!stObj)
+         continue;
+
+      if (pscreen->is_format_supported(pscreen, st_get_view_format(stObj),
+                                       PIPE_TEXTURE_2D, 0, 0,
+                                       PIPE_BIND_SAMPLER_VIEW))
          continue;
 
       switch (st_get_view_format(stObj)) {
