@@ -1358,18 +1358,29 @@ dri2_query_dma_buf_modifiers(__DRIscreen *_screen, int fourcc, int max,
    const struct dri2_format_mapping *map = dri2_get_mapping_by_fourcc(fourcc);
    enum pipe_format format;
 
-   if (!map)
+   if (!map || !pscreen->query_dmabuf_modifiers)
       return false;
 
    format = map->pipe_format;
 
-   if (pscreen->query_dmabuf_modifiers != NULL &&
-       (pscreen->is_format_supported(pscreen, format, screen->target, 0, 0,
+   if ((pscreen->is_format_supported(pscreen, format, screen->target, 0, 0,
                                      PIPE_BIND_RENDER_TARGET) ||
         pscreen->is_format_supported(pscreen, format, screen->target, 0, 0,
                                      PIPE_BIND_SAMPLER_VIEW))) {
       pscreen->query_dmabuf_modifiers(pscreen, format, max, modifiers,
                                       external_only, count);
+      return true;
+   } else if (util_format_is_yuv(format) &&
+              pscreen->is_format_supported(pscreen, PIPE_FORMAT_R8_UNORM,
+                                           screen->target, 0, 0,
+                                           PIPE_BIND_SAMPLER_VIEW)) {
+      /* YUV format sampling can be emulated by the Mesa state tracker by
+       * using multiple R8/RG88 samplers if the driver doesn't support those
+       * formats natively, so we need a special case here to give a mostly
+       * accurate answer to the modifiers query.
+       */
+      pscreen->query_dmabuf_modifiers(pscreen, PIPE_FORMAT_R8_UNORM, max,
+                                      modifiers, external_only, count);
       return true;
    }
    return false;
