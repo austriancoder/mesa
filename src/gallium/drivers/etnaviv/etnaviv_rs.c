@@ -36,6 +36,7 @@
 #include "etnaviv_tiling.h"
 #include "etnaviv_translate.h"
 #include "etnaviv_util.h"
+#include "etnaviv_yuv.h"
 
 #include "pipe/p_defines.h"
 #include "pipe/p_state.h"
@@ -774,6 +775,10 @@ etna_blit_rs(struct pipe_context *pctx, const struct pipe_blit_info *blit_info)
       DBG("color resolve unimplemented");
       return;
    }
+
+   if (etna_format_needs_yuv_tiler(blit_info->src.format) &&
+       etna_try_yuv_blit(pctx, blit_info))
+      return;
 
    if (etna_try_rs_blit(pctx, blit_info))
       return;

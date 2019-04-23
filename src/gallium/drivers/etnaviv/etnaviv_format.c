@@ -284,6 +284,9 @@ static struct etna_format formats[PIPE_FORMAT_COUNT] = {
    /* YUV */
    _T(YUYV, YUY2, SWIZ(X, Y, Z, W), YUY2, NONE),
    _T(UYVY, UYVY, SWIZ(X, Y, Z, W), YUY2, NONE),
+
+   /* multi-planar YUV */
+   _T(NV12, YUY2, SWIZ(X, Y, Z, W), NONE, NONE),
 };
 
 uint32_t

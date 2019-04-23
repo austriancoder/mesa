@@ -159,7 +159,7 @@ etna_copy_resource(struct pipe_context *pctx, struct pipe_resource *dst,
    struct etna_resource *src_priv = etna_resource(src);
    struct etna_resource *dst_priv = etna_resource(dst);
 
-   assert(src->format == dst->format);
+   assert(src->format == dst->format || util_format_is_yuv(src->format));
    assert(src->array_size == dst->array_size);
    assert(last_level <= dst->last_level && last_level <= src->last_level);
 

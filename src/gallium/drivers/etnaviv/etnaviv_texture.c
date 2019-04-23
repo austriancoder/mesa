@@ -34,6 +34,7 @@
 #include "etnaviv_format.h"
 #include "etnaviv_texture_state.h"
 #include "etnaviv_translate.h"
+#include "etnaviv_yuv.h"
 #include "util/u_inlines.h"
 #include "util/u_memory.h"
 
@@ -164,6 +165,9 @@ etna_update_sampler_source(struct pipe_sampler_view *view, int num)
 static bool
 etna_resource_sampler_compatible(struct etna_resource *res)
 {
+   if (etna_format_needs_yuv_tiler(res->base.format))
+      return false;
+
    if (util_format_is_compressed(res->base.format))
       return true;
 
@@ -203,6 +207,10 @@ etna_texture_handle_incompatible(struct pipe_context *pctx, struct pipe_resource
 
          templat.bind &= ~(PIPE_BIND_DEPTH_STENCIL | PIPE_BIND_RENDER_TARGET |
                            PIPE_BIND_BLENDABLE);
+
+         if (util_format_is_yuv(prsc->format))
+            templat.format = PIPE_FORMAT_YUYV;
+
          res->texture =
             etna_resource_alloc(pctx->screen, ETNA_LAYOUT_TILED,
                                 ETNA_ADDRESSING_MODE_TILED,
