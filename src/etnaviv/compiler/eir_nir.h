@@ -37,4 +37,7 @@ eir_get_compiler_options(void);
 struct nir_shader *
 eir_optimize_nir(struct nir_shader *s);
 
+void
+eir_nir_lower_alu_to_scalar(struct nir_shader *shader);
+
 #endif // H_EIR_NIR
