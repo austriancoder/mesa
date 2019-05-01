@@ -28,6 +28,7 @@ libetnaviv_compiler_files = files(
   'eir_compiler_nir.c',
   'eir_legalize.c',
   'eir_live_variables.c',
+  'eir_nir_lower_alu_to_scalar.c',
   'eir_nir.c',
   'eir_nir.h',
   'eir_print.c',
