@@ -31,6 +31,7 @@ libetnaviv_compiler_files = files(
   'eir_nir_lower_alu_to_scalar.c',
   'eir_nir.c',
   'eir_nir.h',
+  'eir_optimize.c',
   'eir_print.c',
   'eir_register_allocate.c',
   'eir_shader.c',

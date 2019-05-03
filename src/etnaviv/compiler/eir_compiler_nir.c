@@ -991,6 +991,12 @@ eir_compile_shader_nir(struct eir_compiler *compiler,
       eir_print(ctx->ir);
    }
 
+   eir_optimize(ctx->ir);
+   if (eir_compiler_debug & EIR_DBG_OPTMSGS) {
+      printf("AFTER eir_optimize:\n");
+      eir_print(ctx->ir);
+   }
+
    eir_legalize(ctx->ir);
    if (eir_compiler_debug & EIR_DBG_OPTMSGS) {
       printf("AFTER legalization:\n");
