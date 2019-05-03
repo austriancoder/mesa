@@ -102,6 +102,8 @@ eir_optimize_nir(struct nir_shader *s)
    OPT_V(s, nir_lower_global_vars_to_local);
    OPT_V(s, nir_lower_regs_to_ssa);
 
+   OPT_V(s, eir_nir_lower_alu_to_scalar);
+
    OPT_V(s, nir_opt_algebraic);
 
    eir_optimize_loop(s);
