@@ -28,4 +28,9 @@
 #ifndef H_EIR_OPTIMIZE
 #define H_EIR_OPTIMIZE
 
+struct eir;
+
+bool
+eir_opt_peephole(struct eir *ir);
+
 #endif // H_EIR_OPTIMIZE

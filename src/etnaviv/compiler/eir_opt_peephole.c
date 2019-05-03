@@ -27,24 +27,37 @@
 
 #include "eir.h"
 #include "eir_optimize.h"
-#include <stdio.h>
 
-#define OPTPASS(func)                                 \
-   do {                                               \
-         bool stage_progress = func(ir);              \
-         if (stage_progress) {                        \
-            if (print_opt_debug) {                    \
-               fprintf(stderr,                        \
-                       "EIR opt pass %s progress\n",  \
-                       #func);                        \
-            }                                         \
-         }                                            \
-   } while (0)
-
-void
-eir_optimize(struct eir *ir)
+static bool
+eir_opt_peephole_impl(struct eir_instruction *instr)
 {
-   const bool print_opt_debug = true;
+   /* remove "mov t0 t0" as seen with bin/gl-2.0-vertex-attr-0 */
 
-   OPTPASS(eir_opt_peephole);
+   if (instr->gc.opcode != GC_MOV)
+      return false;
+
+   if (instr->src[0].index != instr->dst.index)
+      return false;
+
+   if (instr->dst.writemask != (INST_COMPS_X | INST_COMPS_Y | INST_COMPS_Z | INST_COMPS_W))
+      return false;
+
+   if (instr->src[0].swizzle != INST_SWIZ_IDENTITY)
+      return false;
+
+   list_del(&instr->node);
+
+   return true;
+}
+
+bool
+eir_opt_peephole(struct eir *ir)
+{
+   bool progress = false;
+
+   eir_for_each_block(block, ir)
+      eir_for_each_inst_safe(inst, block)
+         progress |= eir_opt_peephole_impl(inst);
+
+   return progress;
 }
