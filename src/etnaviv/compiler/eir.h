@@ -295,6 +295,9 @@ void
 eir_legalize(struct eir *ir);
 
 void
+eir_optimize(struct eir *ir);
+
+void
 eir_calculate_live_intervals(struct eir *ir);
 
 int
