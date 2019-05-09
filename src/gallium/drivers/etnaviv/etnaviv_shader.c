@@ -92,6 +92,8 @@ static bool etna_icache_upload_shader(struct etna_context *ctx, struct etna_shad
    return true;
 }
 
+#include "etnaviv_disasm.h"
+
 static uint32_t
 etna_calculate_load_balance(const struct etna_specs *specs, unsigned num_regs)
 {
@@ -132,6 +134,13 @@ eir_link_shaders(struct etna_context *ctx, struct compiled_shader_state *cs,
    struct eir_shader_linkage link = { };
 
    eir_link_shader(&link, vs, fs);
+
+#ifdef DEBUG
+   if (DBG_ENABLED(ETNA_DBG_DUMP_SHADERS)) {
+      eir_dump_shader(vs);
+      eir_dump_shader(fs);
+   }
+#endif
 
    if (DBG_ENABLED(ETNA_DBG_LINKER_MSGS)) {
       debug_printf("link result:\n");
@@ -187,16 +196,16 @@ eir_link_shaders(struct etna_context *ctx, struct compiled_shader_state *cs,
       cs->VS_OUTPUT_COUNT_PSIZE = cs->VS_OUTPUT_COUNT;
    }
 
-#if 0
-   cs->VS_LOAD_BALANCING = vs->vs_load_balancing;
-#endif
-   cs->VS_START_PC = 0;
+   cs->VS_LOAD_BALANCING = etna_calculate_load_balance(&ctx->specs, vs->num_outputs);
 
+   static const uint8_t fs_input_count_unk8 = 31; /* XXX what is this */
+
+   cs->VS_START_PC = 0;
    cs->PS_END_PC = fs->info.sizedwords / 4;
    cs->PS_OUTPUT_REG = fs->fs_color_out_reg;
    cs->PS_INPUT_COUNT =
       VIVS_PS_INPUT_COUNT_COUNT(link.num_varyings + 1) | /* Number of inputs plus position */
-      /*VIVS_PS_INPUT_COUNT_UNK8(fs->input_count_unk8)*/ 0;
+      VIVS_PS_INPUT_COUNT_UNK8(fs_input_count_unk8);
    cs->PS_TEMP_REGISTER_CONTROL =
       VIVS_PS_TEMP_REGISTER_CONTROL_NUM_TEMPS(MAX2(fs->num_temps, link.num_varyings + 1));
    cs->PS_CONTROL = VIVS_PS_CONTROL_UNK1; /* XXX when can we set BYPASS? */
@@ -206,7 +215,7 @@ eir_link_shaders(struct etna_context *ctx, struct compiled_shader_state *cs,
     * mode, avoids some fumbling in sync_context. */
    cs->PS_INPUT_COUNT_MSAA =
       VIVS_PS_INPUT_COUNT_COUNT(link.num_varyings + 2) | /* MSAA adds another input */
-      /*VIVS_PS_INPUT_COUNT_UNK8(fs->input_count_unk8)*/ 0;
+      VIVS_PS_INPUT_COUNT_UNK8(fs_input_count_unk8);
    cs->PS_TEMP_REGISTER_CONTROL_MSAA =
       VIVS_PS_TEMP_REGISTER_CONTROL_NUM_TEMPS(MAX2(fs->num_temps, link.num_varyings + 2));
 
@@ -269,8 +278,7 @@ eir_link_shaders(struct etna_context *ctx, struct compiled_shader_state *cs,
    }
 #endif
 
-   /* TODO: */
-   return false;
+   return true;
 }
 
 static bool
@@ -448,6 +456,47 @@ etna_shader_link(struct etna_context *ctx)
 }
 
 static bool
+eir_shader_update_vs_inputs(struct compiled_shader_state *cs,
+                            const struct eir_shader_variant *vs,
+                            const struct compiled_vertex_elements_state *ves)
+{
+   unsigned num_temps, cur_temp, num_vs_inputs;
+
+   if (!vs)
+      return false;
+
+   num_vs_inputs = MAX2(ves->num_elements, vs->num_inputs);
+   if (num_vs_inputs != ves->num_elements) {
+      BUG("Number of elements %u does not match the number of VS inputs %zu",
+          ves->num_elements, vs->num_inputs);
+      return false;
+   }
+
+   cur_temp = vs->num_temps;
+   num_temps = num_vs_inputs - vs->num_inputs + cur_temp;
+   const uint8_t vs_input_count_unk8 = (vs->num_inputs + 19) / 16;
+
+   cs->VS_INPUT_COUNT = VIVS_VS_INPUT_COUNT_COUNT(num_vs_inputs) |
+                        VIVS_VS_INPUT_COUNT_UNK8(vs_input_count_unk8);
+   cs->VS_TEMP_REGISTER_CONTROL =
+      VIVS_VS_TEMP_REGISTER_CONTROL_NUM_TEMPS(num_temps);
+
+   /* vs inputs (attributes) */
+   DEFINE_ETNA_BITARRAY(vs_input, 16, 8) = {0};
+   for (int idx = 0; idx < num_vs_inputs; ++idx) {
+      if (idx < vs->num_inputs)
+         etna_bitarray_set(vs_input, 8, idx, vs->inputs[idx].slot);
+      else
+         etna_bitarray_set(vs_input, 8, idx, cur_temp++);
+   }
+
+   for (int idx = 0; idx < ARRAY_SIZE(cs->VS_INPUT); ++idx)
+      cs->VS_INPUT[idx] = vs_input[idx];
+
+   return true;
+}
+
+static bool
 etna_shader_update_vs_inputs(struct compiled_shader_state *cs,
                              const struct etna_shader_variant *vs,
                              const struct compiled_vertex_elements_state *ves)
@@ -529,8 +578,12 @@ dump_shader_info(struct etna_shader_variant *v, struct pipe_debug_callback *debu
 bool
 etna_shader_update_vertex(struct etna_context *ctx)
 {
-   return etna_shader_update_vs_inputs(&ctx->shader_state, ctx->shader.vs,
-                                       ctx->vertex_elements);
+   if (etna_mesa_debug & ETNA_DBG_NIR)
+      return eir_shader_update_vs_inputs(&ctx->shader_state, ctx->shader.vs,
+                                         ctx->vertex_elements);
+   else
+      return etna_shader_update_vs_inputs(&ctx->shader_state, ctx->shader.vs,
+                                          ctx->vertex_elements);
 }
 
 static struct etna_shader_variant *
