@@ -44,6 +44,7 @@
 #include "etnaviv_texture.h"
 #include "etnaviv_transfer.h"
 #include "etnaviv_translate.h"
+#include "etnaviv_uniforms.h"
 #include "etnaviv_zsa.h"
 
 #include "pipe/p_context.h"
@@ -119,9 +120,9 @@ etna_update_state_for_draw(struct etna_context *ctx, const struct pipe_draw_info
 static bool
 etna_get_vs(struct etna_context *ctx, struct etna_shader_key key)
 {
-   const struct etna_shader_variant *old = ctx->shader.vs;
+   const void *old = ctx->shader.vs;
 
-   ctx->shader.vs = etna_shader_variant(ctx->shader.bind_vs, key, &ctx->debug);
+   ctx->shader.vs = ctx->create_shader_variant(ctx->shader.bind_vs, key, &ctx->debug);
 
    if (!ctx->shader.vs)
       return false;
@@ -135,9 +136,9 @@ etna_get_vs(struct etna_context *ctx, struct etna_shader_key key)
 static bool
 etna_get_fs(struct etna_context *ctx, struct etna_shader_key key)
 {
-   const struct etna_shader_variant *old = ctx->shader.fs;
+   const void *old = ctx->shader.fs;
 
-   ctx->shader.fs = etna_shader_variant(ctx->shader.bind_fs, key, &ctx->debug);
+   ctx->shader.fs = ctx->create_shader_variant(ctx->shader.bind_fs, key, &ctx->debug);
 
    if (!ctx->shader.fs)
       return false;
@@ -464,6 +465,13 @@ etna_context_create(struct pipe_screen *pscreen, void *priv, unsigned flags)
    etna_shader_init(pctx);
    etna_texture_init(pctx);
    etna_transfer_init(pctx);
+
+   ctx->uniform_dirty_flags = etna_uniform_dirty_flags;
+   ctx->uniforms_write = etna_uniforms_write;
+   ctx->uniforms_const_count = etna_uniforms_const_count;
+   ctx->create_shader_variant = etna_shader_variant;
+   ctx->shader_link = etna_shader_link;
+   ctx->shader_update_vertex = etna_shader_update_vertex;
 
    ctx->blitter = util_blitter_create(pctx);
    if (!ctx->blitter)

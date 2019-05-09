@@ -621,6 +621,18 @@ etna_update_ts_config(struct etna_context *ctx)
    return true;
 }
 
+static inline bool
+shader_update_vertex(struct etna_context *ctx)
+{
+   return ctx->shader_update_vertex(ctx);
+}
+
+static inline bool
+shader_link(struct etna_context *ctx)
+{
+   return ctx->shader_link(ctx);
+}
+
 struct etna_state_updater {
    bool (*update)(struct etna_context *ctx);
    uint32_t dirty;
@@ -628,10 +640,10 @@ struct etna_state_updater {
 
 static const struct etna_state_updater etna_state_updates[] = {
    {
-      etna_shader_update_vertex, ETNA_DIRTY_SHADER | ETNA_DIRTY_VERTEX_ELEMENTS,
+      shader_update_vertex, ETNA_DIRTY_SHADER | ETNA_DIRTY_VERTEX_ELEMENTS,
    },
    {
-      etna_shader_link, ETNA_DIRTY_SHADER,
+      shader_link, ETNA_DIRTY_SHADER,
    },
    {
       etna_update_blend, ETNA_DIRTY_BLEND | ETNA_DIRTY_FRAMEBUFFER

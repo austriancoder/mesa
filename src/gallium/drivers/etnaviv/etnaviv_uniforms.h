@@ -35,11 +35,17 @@ struct pipe_constant_buffer;
 
 void
 etna_uniforms_write(const struct etna_context *ctx,
-                    const struct etna_shader_variant *sobj,
+                    const void *sobj,
                     struct pipe_constant_buffer *cb, uint32_t *uniforms,
                     unsigned *size);
 
 void
 etna_set_shader_uniforms_dirty_flags(struct etna_shader_variant *sobj);
+
+uint32_t
+etna_uniforms_const_count(const void *v);
+
+uint32_t
+etna_uniform_dirty_flags(const void *v);
 
 #endif /* ETNAVIV_UNIFORMS_H_ */
