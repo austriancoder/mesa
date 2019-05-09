@@ -105,8 +105,8 @@ required_stream_size(struct etna_context *ctx)
    size += ctx->vertex_elements->num_elements + 1;
 
    /* uniforms - worst case (2 words per uniform load) */
-   size += ctx->shader.vs->uniforms.const_count * 2;
-   size += ctx->shader.fs->uniforms.const_count * 2;
+   size += ctx->uniforms_const_count(ctx->shader.vs) * 2;
+   size += ctx->uniforms_const_count(ctx->shader.fs) * 2;
 
    /* shader */
    size += ctx->shader_state.vs_inst_mem_size + 1;
@@ -577,13 +577,13 @@ etna_emit_state(struct etna_context *ctx)
    static const uint32_t uniform_dirty_bits =
       ETNA_DIRTY_SHADER | ETNA_DIRTY_CONSTBUF;
 
-   if (dirty & (uniform_dirty_bits | ctx->shader.fs->uniforms_dirty_bits))
-      etna_uniforms_write(
+   if (dirty & (uniform_dirty_bits | ctx->uniform_dirty_flags(ctx->shader.vs)))
+      ctx->uniforms_write(
          ctx, ctx->shader.vs, &ctx->constant_buffer[PIPE_SHADER_VERTEX],
          ctx->shader_state.VS_UNIFORMS, &ctx->shader_state.vs_uniforms_size);
 
-   if (dirty & (uniform_dirty_bits | ctx->shader.vs->uniforms_dirty_bits))
-      etna_uniforms_write(
+   if (dirty & (uniform_dirty_bits | ctx->uniform_dirty_flags(ctx->shader.fs)))
+      ctx->uniforms_write(
          ctx, ctx->shader.fs, &ctx->constant_buffer[PIPE_SHADER_FRAGMENT],
          ctx->shader_state.PS_UNIFORMS, &ctx->shader_state.ps_uniforms_size);
 
@@ -694,7 +694,7 @@ etna_emit_state(struct etna_context *ctx)
       if (do_uniform_flush)
          etna_set_state(stream, VIVS_VS_UNIFORM_CACHE, VIVS_VS_UNIFORM_CACHE_FLUSH);
       etna_coalesce_start(stream, &coalesce);
-      for (int x = 0; x < ctx->shader.vs->uniforms.const_count; ++x) {
+      for (int x = 0; x < ctx->uniforms_const_count(ctx->shader.vs); ++x) {
          if (ctx->gpu3d.VS_UNIFORMS[x] != ctx->shader_state.VS_UNIFORMS[x]) {
             etna_coalsence_emit(stream, &coalesce, ctx->specs.vs_uniforms_offset + x*4, ctx->shader_state.VS_UNIFORMS[x]);
             ctx->gpu3d.VS_UNIFORMS[x] = ctx->shader_state.VS_UNIFORMS[x];
@@ -706,7 +706,7 @@ etna_emit_state(struct etna_context *ctx)
       if (do_uniform_flush)
          etna_set_state(stream, VIVS_VS_UNIFORM_CACHE, VIVS_VS_UNIFORM_CACHE_FLUSH | VIVS_VS_UNIFORM_CACHE_PS);
       etna_coalesce_start(stream, &coalesce);
-      for (int x = 0; x < ctx->shader.fs->uniforms.const_count; ++x) {
+      for (int x = 0; x < ctx->uniforms_const_count(ctx->shader.fs); ++x) {
          if (ctx->gpu3d.PS_UNIFORMS[x] != ctx->shader_state.PS_UNIFORMS[x]) {
             etna_coalsence_emit(stream, &coalesce, ctx->specs.ps_uniforms_offset + x*4, ctx->shader_state.PS_UNIFORMS[x]);
             ctx->gpu3d.PS_UNIFORMS[x] = ctx->shader_state.PS_UNIFORMS[x];

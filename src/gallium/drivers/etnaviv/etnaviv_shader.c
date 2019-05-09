@@ -342,10 +342,11 @@ fail:
    return NULL;
 }
 
-struct etna_shader_variant *
-etna_shader_variant(struct etna_shader *shader, struct etna_shader_key key,
+void *
+etna_shader_variant(void *s, struct etna_shader_key key,
                    struct pipe_debug_callback *debug)
 {
+   struct etna_shader *shader = (struct etna_shader *)s;
    struct etna_shader_variant *v;
 
    for (v = shader->variants; v; v = v->next)

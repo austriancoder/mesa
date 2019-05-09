@@ -72,8 +72,8 @@ etna_shader_link(struct etna_context *ctx);
 bool
 etna_shader_update_vertex(struct etna_context *ctx);
 
-struct etna_shader_variant *
-etna_shader_variant(struct etna_shader *shader, struct etna_shader_key key,
+void *
+etna_shader_variant(void *shader, struct etna_shader_key key,
                    struct pipe_debug_callback *debug);
 
 void

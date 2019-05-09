@@ -31,6 +31,7 @@
 #include <stdint.h>
 
 #include "etnaviv_resource.h"
+#include "etnaviv_shader.h"
 #include "etnaviv_tiling.h"
 #include "indices/u_primconvert.h"
 #include "pipe/p_context.h"
@@ -82,7 +83,7 @@ struct etna_vertexbuf_state {
 
 struct etna_shader_state {
    void *bind_vs, *bind_fs;
-   struct etna_shader_variant *vs, *fs;
+   void *vs, *fs;
 };
 
 enum etna_immediate_contents {
@@ -191,6 +192,19 @@ struct etna_context {
 
    struct etna_bo *dummy_rt;
    struct etna_reloc dummy_rt_reloc;
+
+   /* abstraction to support different compilers backends */
+   uint32_t (*uniform_dirty_flags)(const void *sobj);
+   void (*uniforms_write)(const struct etna_context *ctx,
+                          const void *sobj,
+                          struct pipe_constant_buffer *cb,
+                          uint32_t *uniforms,
+                          unsigned *size);
+   uint32_t (*uniforms_const_count)(const void *sobj);
+
+   void *(*create_shader_variant)(void *shader,
+                                  struct etna_shader_key key,
+                                  struct pipe_debug_callback *debug);
 };
 
 static inline struct etna_context *
