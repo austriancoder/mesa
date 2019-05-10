@@ -591,12 +591,14 @@ etna_emit_state(struct etna_context *ctx)
 
       if (dirty & uniform_dirty_bits)
          eir_uniforms_write(
-            fs, ctx->shader_state.VS_UNIFORMS,
+            ctx, &ctx->constant_buffer[PIPE_SHADER_FRAGMENT], fs,
+            ctx->shader_state.VS_UNIFORMS,
             &ctx->shader_state.vs_uniforms_size);
 
       if (dirty & uniform_dirty_bits)
          eir_uniforms_write(
-            vs, ctx->shader_state.PS_UNIFORMS,
+            ctx, &ctx->constant_buffer[PIPE_SHADER_VERTEX], vs,
+            ctx->shader_state.PS_UNIFORMS,
             &ctx->shader_state.ps_uniforms_size);
    } else {
       struct etna_shader_variant *fs = ctx->shader.fs;
