@@ -25,6 +25,8 @@
  *    Christian Gmeiner <christian.gmeiner@gmail.com>
  */
 
+#include "etnaviv_eir.h"   /* TODO: fix problems with COMPARE_FUNC_NEVER */
+
 #include "etnaviv_context.h"
 
 #include "etnaviv_blend.h"
@@ -466,12 +468,21 @@ etna_context_create(struct pipe_screen *pscreen, void *priv, unsigned flags)
    etna_texture_init(pctx);
    etna_transfer_init(pctx);
 
-   ctx->uniform_dirty_flags = etna_uniform_dirty_flags;
-   ctx->uniforms_write = etna_uniforms_write;
-   ctx->uniforms_const_count = etna_uniforms_const_count;
-   ctx->create_shader_variant = etna_shader_variant;
-   ctx->shader_link = etna_shader_link;
-   ctx->shader_update_vertex = etna_shader_update_vertex;
+   if (etna_mesa_debug & ETNA_DBG_NIR) {
+      ctx->uniform_dirty_flags = eir_uniform_dirty_flags;
+      ctx->uniforms_write = eir_uniforms_write;
+      ctx->uniforms_const_count = eir_uniforms_const_count;
+      ctx->create_shader_variant = eir_shader_variant;
+      ctx->shader_link = eir_link_shaders;
+      ctx->shader_update_vertex = eir_shader_update_vertex;
+   } else {
+      ctx->uniform_dirty_flags = etna_uniform_dirty_flags;
+      ctx->uniforms_write = etna_uniforms_write;
+      ctx->uniforms_const_count = etna_uniforms_const_count;
+      ctx->create_shader_variant = etna_shader_variant;
+      ctx->shader_link = etna_shader_link;
+      ctx->shader_update_vertex = etna_shader_update_vertex;
+   }
 
    ctx->blitter = util_blitter_create(pctx);
    if (!ctx->blitter)
