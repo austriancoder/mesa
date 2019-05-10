@@ -617,7 +617,7 @@ etna_emit_state(struct etna_context *ctx)
 
    /**** Large dynamically-sized state ****/
    bool do_uniform_flush = ctx->specs.halti < 5;
-   if (dirty & (ETNA_DIRTY_SHADER)) {
+   if (1 /*dirty & (ETNA_DIRTY_SHADER)*/) {
       /* Special case: a new shader was loaded; simply re-load all uniforms and
        * shader code at once */
       /* This sequence is special, do not change ordering unless necessary. According to comment
