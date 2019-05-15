@@ -163,8 +163,7 @@ etna_screen_get_param(struct pipe_screen *pscreen, enum pipe_cap param)
       return 120;
 
    case PIPE_CAP_NPOT_TEXTURES:
-      return true; /* VIV_FEATURE(priv->dev, chipMinorFeatures1,
-                      NON_POWER_OF_TWO); */
+      return VIV_FEATURE(screen, chipMinorFeatures1, NON_POWER_OF_TWO);
 
    case PIPE_CAP_TEXTURE_SWIZZLE:
    case PIPE_CAP_PRIMITIVE_RESTART:
