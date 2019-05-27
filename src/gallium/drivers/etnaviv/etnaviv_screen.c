@@ -178,7 +178,6 @@ etna_screen_get_param(struct pipe_screen *pscreen, enum pipe_cap param)
    case PIPE_CAP_SEAMLESS_CUBE_MAP:
    case PIPE_CAP_COMPUTE: /* XXX supported on gc2000 */
    case PIPE_CAP_MIXED_COLORBUFFER_FORMATS: /* only one colorbuffer supported, so mixing makes no sense */
-   case PIPE_CAP_CONDITIONAL_RENDER: /* no occlusion queries */
    case PIPE_CAP_TGSI_INSTANCEID: /* no idea, really */
    case PIPE_CAP_START_INSTANCE: /* instancing not supported AFAIK */
    case PIPE_CAP_VERTEX_ELEMENT_INSTANCE_DIVISOR: /* instancing not supported AFAIK */
@@ -355,6 +354,8 @@ etna_screen_get_param(struct pipe_screen *pscreen, enum pipe_cap param)
    case PIPE_CAP_QUERY_TIME_ELAPSED:
       return 0;
    case PIPE_CAP_OCCLUSION_QUERY:
+      /* fall-through */
+   case PIPE_CAP_CONDITIONAL_RENDER:
       return VIV_FEATURE(screen, chipMinorFeatures1, HALTI0);
    case PIPE_CAP_QUERY_TIMESTAMP:
       return 1;

@@ -148,6 +148,25 @@ etna_get_fs(struct etna_context *ctx, struct etna_shader_key key)
    return true;
 }
 
+static bool
+etna_render_condition_check(struct pipe_context *pctx)
+{
+	struct etna_context *ctx = etna_context(pctx);
+
+	if (!ctx->cond_query)
+		return true;
+
+	union pipe_query_result res = { 0 };
+	bool wait =
+		ctx->cond_mode != PIPE_RENDER_COND_NO_WAIT &&
+		ctx->cond_mode != PIPE_RENDER_COND_BY_REGION_NO_WAIT;
+
+	if (pctx->get_query_result(pctx, ctx->cond_query, wait, &res))
+			return (bool)res.u64 != ctx->cond_cond;
+
+	return true;
+}
+
 static void
 etna_draw_vbo(struct pipe_context *pctx, const struct pipe_draw_info *info)
 {
@@ -182,6 +201,9 @@ etna_draw_vbo(struct pipe_context *pctx, const struct pipe_draw_info *info)
       BUG("Unsupported draw mode");
       return;
    }
+
+	if (!etna_render_condition_check(pctx))
+		return;
 
    /* Upload a user index buffer. */
    unsigned index_offset = 0;

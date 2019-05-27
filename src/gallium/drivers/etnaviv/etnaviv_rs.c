@@ -378,11 +378,33 @@ etna_blit_clear_zs_rs(struct pipe_context *pctx, struct pipe_surface *dst,
    etna_resource(surf->base.texture)->seqno++;
 }
 
+static bool
+etna_render_condition_check(struct pipe_context *pctx)
+{
+	struct etna_context *ctx = etna_context(pctx);
+
+	if (!ctx->cond_query)
+		return true;
+
+	union pipe_query_result res = { 0 };
+	bool wait =
+		ctx->cond_mode != PIPE_RENDER_COND_NO_WAIT &&
+		ctx->cond_mode != PIPE_RENDER_COND_BY_REGION_NO_WAIT;
+
+	if (pctx->get_query_result(pctx, ctx->cond_query, wait, &res))
+			return (bool)res.u64 != ctx->cond_cond;
+
+	return true;
+}
+
 static void
 etna_clear_rs(struct pipe_context *pctx, unsigned buffers,
            const union pipe_color_union *color, double depth, unsigned stencil)
 {
    struct etna_context *ctx = etna_context(pctx);
+
+   if (!etna_render_condition_check(pctx))
+      return;
 
    /* Flush color and depth cache before clearing anything.
     * This is especially important when coming from another surface, as
@@ -767,6 +789,9 @@ etna_blit_rs(struct pipe_context *pctx, const struct pipe_blit_info *blit_info)
    struct etna_context *ctx = etna_context(pctx);
    struct pipe_blit_info info = *blit_info;
 
+   if (!etna_render_condition_check(pctx))
+      return;
+
    if (info.src.resource->nr_samples > 1 &&
        info.dst.resource->nr_samples <= 1 &&
        !util_format_is_depth_or_stencil(info.src.resource->format) &&
@@ -793,7 +818,7 @@ etna_blit_rs(struct pipe_context *pctx, const struct pipe_blit_info *blit_info)
       return;
    }
 
-   etna_blit_save_state(ctx);
+   etna_blit_save_state(ctx, false);
    util_blitter_blit(ctx->blitter, &info);
 }
 

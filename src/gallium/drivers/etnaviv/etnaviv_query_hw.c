@@ -91,6 +91,8 @@ occlusion_result(struct etna_hw_query *hq, void *buf,
    for (unsigned i = 0; i <= hq->samples; i++)
       sum += *(ptr + i);
 
+   printf("occlusion_result: %llu\n", sum);
+
    if (hq->base.type == PIPE_QUERY_OCCLUSION_COUNTER)
       result->u64 = sum;
    else

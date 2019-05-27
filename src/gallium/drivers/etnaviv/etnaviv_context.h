@@ -183,6 +183,10 @@ struct etna_context {
       uint64_t rs_operations;
    } stats;
 
+	struct pipe_query *cond_query;
+	bool cond_cond; /* inverted rendering condition */
+	uint cond_mode;
+
    struct pipe_debug_callback debug;
    int in_fence_fd;
 

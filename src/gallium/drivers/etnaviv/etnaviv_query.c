@@ -47,6 +47,8 @@ etna_create_query(struct pipe_context *pctx, unsigned query_type,
    if (!q)
       q = etna_pm_create_query(ctx, query_type);
 
+   printf("etna_create_query: %d -> %p\n", query_type, q);
+
    return (struct pipe_query *)q;
 }
 
@@ -98,6 +100,8 @@ etna_get_query_result(struct pipe_context *pctx, struct pipe_query *pq,
 
    util_query_clear_result(result, q->type);
 
+   printf("etna_get_query_result: %d\n", q->type);
+
    return q->funcs->get_query_result(etna_context(pctx), q, wait, result);
 }
 
@@ -145,6 +149,21 @@ etna_query_screen_init(struct pipe_screen *pscreen)
    pscreen->get_driver_query_group_info = etna_get_driver_query_group_info;
 }
 
+static void
+etna_render_condition(struct pipe_context *pctx, struct pipe_query *pq,
+					       boolean condition, enum pipe_render_cond_flag mode)
+{
+	struct etna_context *ctx = etna_context(pctx);
+struct etna_query *q = etna_query(pq);
+
+   if (q)
+      printf("etna_render_condition: %d condition: %d\n", q->type, condition);
+
+	ctx->cond_query = pq;
+	ctx->cond_cond = condition;
+	ctx->cond_mode = mode;
+}
+
 void
 etna_query_context_init(struct pipe_context *pctx)
 {
@@ -154,4 +173,5 @@ etna_query_context_init(struct pipe_context *pctx)
    pctx->end_query = etna_end_query;
    pctx->get_query_result = etna_get_query_result;
    pctx->set_active_query_state = etna_set_active_query_state;
+   pctx->render_condition = etna_render_condition;
 }

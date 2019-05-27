@@ -551,7 +551,7 @@ etna_blit_blt(struct pipe_context *pctx, const struct pipe_blit_info *blit_info)
       return;
    }
 
-   etna_blit_save_state(ctx);
+   etna_blit_save_state(ctx, blit_info->render_condition_enable);
    util_blitter_blit(ctx->blitter, &info);
 }
 

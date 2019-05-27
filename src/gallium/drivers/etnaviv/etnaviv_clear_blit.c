@@ -46,7 +46,7 @@
 
 /* Save current state for blitter operation */
 void
-etna_blit_save_state(struct etna_context *ctx)
+etna_blit_save_state(struct etna_context *ctx, bool cond)
 {
    util_blitter_save_vertex_buffer_slot(ctx->blitter, ctx->vertex_buffer.vb);
    util_blitter_save_vertex_elements(ctx->blitter, ctx->vertex_elements);
@@ -64,6 +64,10 @@ etna_blit_save_state(struct etna_context *ctx)
          ctx->num_fragment_samplers, (void **)ctx->sampler);
    util_blitter_save_fragment_sampler_views(ctx->blitter,
          ctx->num_fragment_sampler_views, ctx->sampler_view);
+
+   if (cond)
+      util_blitter_save_render_condition(ctx->blitter,
+			ctx->cond_query, ctx->cond_cond, ctx->cond_mode);
 }
 
 uint32_t
@@ -87,7 +91,7 @@ etna_clear_render_target(struct pipe_context *pctx, struct pipe_surface *dst,
 
    /* XXX could fall back to RS when target area is full screen / resolveable
     * and no TS. */
-   etna_blit_save_state(ctx);
+   etna_blit_save_state(ctx, false);
    util_blitter_clear_render_target(ctx->blitter, dst, color, dstx, dsty, width, height);
 }
 
@@ -101,7 +105,7 @@ etna_clear_depth_stencil(struct pipe_context *pctx, struct pipe_surface *dst,
 
    /* XXX could fall back to RS when target area is full screen / resolveable
     * and no TS. */
-   etna_blit_save_state(ctx);
+   etna_blit_save_state(ctx, false);
    util_blitter_clear_depth_stencil(ctx->blitter, dst, clear_flags, depth,
                                     stencil, dstx, dsty, width, height);
 }
@@ -127,7 +131,7 @@ etna_resource_copy_region(struct pipe_context *pctx, struct pipe_resource *dst,
     * XXX this goes wrong when source surface is supertiled.
     */
    if (util_blitter_is_copy_supported(ctx->blitter, dst, src)) {
-      etna_blit_save_state(ctx);
+      etna_blit_save_state(ctx, false);
       util_blitter_copy_texture(ctx->blitter, dst, dst_level, dstx, dsty, dstz,
                                 src, src_level, src_box);
    } else {
